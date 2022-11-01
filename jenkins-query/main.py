@@ -30,6 +30,13 @@ from rich.progress import Progress
 verbose = False
 
 
+def next_get(iterable, default):
+    try:
+        return next(iterable)
+    except StopIteration:
+        return default
+
+
 def api(session: requests.Session,
         url: str,
         tree: str = "",
@@ -206,7 +213,7 @@ def add_jobs_to_table(name: str,
             text.stylize("bold orange")
         elif str == "In Progress":
             text.stylize("yellow")
-        else:
+        elif str == "FAILURE":
             text.stylize("bold red3")
         return text
 
@@ -221,6 +228,16 @@ def add_jobs_to_table(name: str,
         )
         name = r["name"]
 
+        if not r["lastBuild"]:
+            # there has not been a build
+            return {
+                "name": name,
+                "build_num": None,
+                "status": "NOT RUN",
+                "timestamp": None,
+                "serial": None,
+                "url": None,
+            }
         # update base netloc of url to use that of the job config's server address, to avoid problems with SSO
         url = urlsplit(r["lastBuild"]["url"])
         url = url._replace(netloc=server_url.netloc)
@@ -238,7 +255,7 @@ def add_jobs_to_table(name: str,
             "build_num": r["id"],
             "status": r["result"],
             "timestamp": datetime.utcfromtimestamp(r["timestamp"]/1000.0),
-            "serial": next(p["value"] for p in parameters if p["name"] == "SERIAL"),
+            "serial": next_get((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
             "url": url.geturl(),
         }
         return data
@@ -262,12 +279,12 @@ def add_jobs_to_table(name: str,
         table.add_row(
             prefix + fields["name"],
             fields["serial"],
-            str(fields["build_num"]),
-            fields["timestamp"].strftime("%y-%m-%d %H:%M UTC"),
+            fields["build_num"],
+            fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None ,
             status(fields["status"]),
             fields["url"],
             )
-        if datetime.now() - fields["timestamp"] > timedelta(hours=24):
+        if fields["timestamp"] and datetime.now() - fields["timestamp"] > timedelta(hours=24):
             table.rows[-1].style = "dim"
         progress_task_fn()
     else:
