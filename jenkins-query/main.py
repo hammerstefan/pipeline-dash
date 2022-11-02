@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from pprint import pprint
 
 import click as click
-import urllib3
 import yaml
 import rich.console
 import rich.table
@@ -23,8 +22,9 @@ import json
 from urllib.parse import urlparse, urlsplit
 from bs4 import BeautifulSoup
 import mergedeep
+import asyncio
+import aiohttp
 
-# cookiejar = browser_cookie3.firefox()
 from rich.progress import Progress
 
 verbose = False
@@ -37,13 +37,13 @@ def next_get(iterable, default):
         return default
 
 
-def api(session: requests.Session,
-        url: str,
-        tree: str = "",
-        depth: int = None,
-        load_dir: Optional[str] = None,
-        store_dir: Optional[str] = None,
-        ):
+async def api(session: aiohttp.ClientSession,
+              url: str,
+              tree: str = "",
+              depth: int = None,
+              load_dir: Optional[str] = None,
+              store_dir: Optional[str] = None,
+              ):
     api_url = f"{url}/api/json"
     q="?"
     if tree:
@@ -58,9 +58,9 @@ def api(session: requests.Session,
         if os.path.exists(possible_path):
             with open(possible_path, 'r') as f:
                 return json.load(f)
-    req = session.get(api_url)
-    d = req.content
-    json_data = json.loads(d.decode())
+    async with session.get(api_url) as req:
+        d = await req.text()
+    json_data = json.loads(d)
     if store_dir:
         possible_path = os.path.join(store_dir.encode(), file_name)
         with open(possible_path, 'w') as f:
@@ -146,6 +146,7 @@ def authenticate(session: requests.Session, url: str, user_file: str) -> request
         )
     return sess
 
+
 def do_verbose():
     global verbose
     verbose = True
@@ -155,6 +156,27 @@ def do_verbose():
     requests_log = logging.getLogger("requests.packages.urllib3")
     requests_log.setLevel(logging.DEBUG)
     requests_log.propagate = True
+
+
+def collect_jobs_dict(yaml_data: dict) -> dict:
+    def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
+        if type(pipeline) is dict:
+            for k, v in pipeline.items():
+                fill_pipeline(k, v, server, out_struct)
+        elif type(pipeline) is list:
+            for k in pipeline:
+                fill_pipeline(k, [], server, out_struct)
+        if not name.startswith("."):
+            out_struct[name] = server
+
+    struct = collections.OrderedDict()
+    for server, data in yaml_data["servers"].items():
+        for k in data["pipelines"]:
+            if type(data["pipelines"]) is dict:
+                fill_pipeline(k, data["pipelines"][k], server, struct)
+            else:
+                fill_pipeline(k, [], server, struct)
+    return struct
 
 
 def collect_jobs_pipeline(yaml_data: dict) -> dict:
@@ -171,8 +193,6 @@ def collect_jobs_pipeline(yaml_data: dict) -> dict:
         else:
             name = name[1:]
         out_struct[name] = p
-
-
 
     struct = collections.OrderedDict()
     for server, data in yaml_data["servers"].items():
@@ -194,10 +214,54 @@ def init_session(session, servers, user_file):
         authenticate(session, server, user_file)
 
 
+async def get_job_data(session, server, job, load_dir, store_dir):
+    server_url = urlparse(server)
+    r = await api(
+        session,
+        f"{server}/job/{job}",
+        tree="name,lastBuild[url],downstreamProjects[name,url]",
+        load_dir=load_dir,
+        store_dir=store_dir,
+    )
+    name = r["name"]
+
+    if not r["lastBuild"]:
+        # there has not been a build
+        return {
+            "name": name,
+            "build_num": None,
+            "status": "NOT RUN",
+            "timestamp": None,
+            "serial": None,
+            "url": None,
+        }
+    # update base netloc of url to use that of the job config's server address, to avoid problems with SSO
+    url = urlsplit(r["lastBuild"]["url"])
+    url = url._replace(netloc=server_url.netloc)
+
+    r = await api(
+        session,
+        url.geturl(),
+        tree="id,result,timestamp,actions[parameters[name,value]]",
+        load_dir=load_dir,
+        store_dir=store_dir,
+    )
+    parameters = next(a["parameters"] for a in r["actions"] if a["_class"] == "hudson.model.ParametersAction")
+    data = {
+        "name": name,
+        "build_num": r["id"],
+        "status": r["result"],
+        "timestamp": datetime.utcfromtimestamp(r["timestamp"]/1000.0),
+        "serial": next_get((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
+        "url": url.geturl(),
+    }
+    return data
+
+
 def add_jobs_to_table(name: str,
-                      data: dict,
+                      job_struct: dict,
+                      job_data: dict,
                       prefix: str,
-                      session: requests.Session,
                       table: rich.table.Table,
                       progress_task_fn: Callable,
                       load_dir: Optional[str],
@@ -217,48 +281,6 @@ def add_jobs_to_table(name: str,
             text.stylize("bold red3")
         return text
 
-    def get_job_data(server, job):
-        server_url = urlparse(server)
-        r = api(
-            session,
-            f"{server}/job/{job}",
-            tree="name,lastBuild[url],downstreamProjects[name,url]",
-            load_dir=load_dir,
-            store_dir=store_dir,
-        )
-        name = r["name"]
-
-        if not r["lastBuild"]:
-            # there has not been a build
-            return {
-                "name": name,
-                "build_num": None,
-                "status": "NOT RUN",
-                "timestamp": None,
-                "serial": None,
-                "url": None,
-            }
-        # update base netloc of url to use that of the job config's server address, to avoid problems with SSO
-        url = urlsplit(r["lastBuild"]["url"])
-        url = url._replace(netloc=server_url.netloc)
-
-        r = api(
-            session,
-            url.geturl(),
-            tree="id,result,timestamp,actions[parameters[name,value]]",
-            load_dir=load_dir,
-            store_dir=store_dir,
-        )
-        parameters = next(a["parameters"] for a in r["actions"] if a["_class"] == "hudson.model.ParametersAction")
-        data = {
-            "name": name,
-            "build_num": r["id"],
-            "status": r["result"],
-            "timestamp": datetime.utcfromtimestamp(r["timestamp"]/1000.0),
-            "serial": next_get((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
-            "url": url.geturl(),
-        }
-        return data
 
     def add_prefix(prefix: str) -> str:
         if not len(prefix):
@@ -274,8 +296,8 @@ def add_jobs_to_table(name: str,
             prefix = prefix[1:]
         return prefix
 
-    if "__server__" in data:
-        fields = get_job_data(data["__server__"], name)
+    if "__server__" in job_struct:
+        fields = job_data[name]
         table.add_row(
             prefix + fields["name"],
             fields["serial"],
@@ -290,15 +312,15 @@ def add_jobs_to_table(name: str,
     else:
         table.add_row(prefix + name, style="bold")
 
-    for next_name in data:
+    for next_name in job_struct:
         if next_name == "__server__":
             continue
         prefix = add_prefix(prefix)
         add_jobs_to_table(
             name=next_name,
-            data=data[next_name],
+            job_struct=job_struct[next_name],
+            job_data=job_data,
             prefix=prefix,
-            session=session,
             table=table,
             progress_task_fn=progress_task_fn,
             load_dir=load_dir,
@@ -309,6 +331,32 @@ def add_jobs_to_table(name: str,
 
 def count_dict(d):
     return sum([count_dict(v) if isinstance(v, dict) else 1 for v in d.values()])
+
+
+async def collect_job_data(yaml_data: dict, load_dir, store_dir) -> dict:
+    pipeline_jobs = collect_jobs_dict(yaml_data)
+
+    # session = requests.Session()
+    async with aiohttp.ClientSession() as session:
+    # if auth:
+    #     init_session(
+    #         session,
+    #         (s for s in yaml_data["servers"] if yaml_data["servers"][s]["authenticate"]),
+    #         user_file,
+    #     )
+
+        pipeline_promises = dict()
+        for name, server in pipeline_jobs.items():
+            fields_promise = get_job_data(session, server, name, load_dir, store_dir)
+            pipeline_promises[name] = fields_promise
+
+        result = await asyncio.gather(*pipeline_promises.values())
+
+    # with open(".cookies", "wb") as f:
+    #     pickle.dump(session.cookies, f)
+
+    return dict(zip(pipeline_jobs.keys(), result))
+
 
 
 @click.command()
@@ -327,14 +375,8 @@ def main(jobs_file, user_file, verbose, store, load, auth):
     with open(jobs_file) as file:
         yaml_data = yaml.safe_load(file)
     pipeline_dict = collect_jobs_pipeline(yaml_data)
+    job_data = asyncio.run(collect_job_data(yaml_data, load, store))
 
-    session = requests.Session()
-    if auth:
-        init_session(
-            session,
-            (s for s in yaml_data["servers"] if yaml_data["servers"][s]["authenticate"]),
-            user_file,
-        )
 
     console = rich.console.Console()
     other_table = rich.table.Table(title="Other Jobs")
@@ -350,9 +392,9 @@ def main(jobs_file, user_file, verbose, store, load, auth):
         for name, data in pipeline_dict.items():
             add_jobs_to_table(
                 name=name,
-                data=data,
+                job_struct=data,
+                job_data=job_data,
                 prefix="",
-                session=session,
                 table=other_table,
                 progress_task_fn=progress_fn,
                 load_dir=load,
@@ -361,9 +403,7 @@ def main(jobs_file, user_file, verbose, store, load, auth):
 
     console.print(other_table)
 
-    with open(".cookies", "wb") as f:
-        pickle.dump(session.cookies, f)
 
 if __name__ == '__main__':
-    main()
+   main()
 
