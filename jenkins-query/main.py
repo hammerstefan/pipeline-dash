@@ -2,11 +2,12 @@ import ast
 import base64
 import collections
 import http.client
+import itertools
 import logging
 import os
 import pickle
 import urllib.request
-from typing import Union, Optional, Callable
+from typing import Union, Optional, Callable, Any, List
 
 import requests
 import browser_cookie3
@@ -26,6 +27,8 @@ import asyncio
 import aiohttp
 
 from rich.progress import Progress
+
+from cyto import generate_cyto_elements, display_cyto
 
 verbose = False
 
@@ -158,16 +161,39 @@ def do_verbose():
     requests_log.propagate = True
 
 
+def recurse_pipeline(pipeline: Union[dict, list],
+                     fn: Callable[[str, Union[dict, list], ...], Any],
+                     *args,
+                     **kwargs):
+    rets = []
+    if isinstance(pipeline, dict):
+        for k, v in pipeline.items():
+            if k.startswith("__") and k.endswith("__"):
+                continue
+            ret = fn(k, v, *args, **kwargs)
+            if ret is not None:
+                rets.append(ret)
+    elif isinstance(pipeline, list):
+        for k in pipeline:
+            if type(k) is dict:
+                _name = next(iter(k))
+            else:
+                _name = k
+            if _name.startswith("__") and _name.endswith("__"):
+                continue
+            ret = fn(_name, [], *args, **kwargs)
+            if ret is not None:
+                rets.append(ret)
+    return rets if rets else None
+
+
+
 def collect_jobs_dict(yaml_data: dict) -> dict:
     def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
-        if type(pipeline) is dict:
-            for k, v in pipeline.items():
-                fill_pipeline(k, v, server, out_struct)
-        elif type(pipeline) is list:
-            for k in pipeline:
-                fill_pipeline(k, [], server, out_struct)
+        recurse_pipeline(pipeline, fill_pipeline, server, out_struct)
         if not name.startswith("."):
             out_struct[name] = server
+
 
     struct = collections.OrderedDict()
     for server, data in yaml_data["servers"].items():
@@ -182,12 +208,7 @@ def collect_jobs_dict(yaml_data: dict) -> dict:
 def collect_jobs_pipeline(yaml_data: dict) -> dict:
     def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
         p = {}
-        if type(pipeline) is dict:
-            for k, v in pipeline.items():
-                fill_pipeline(k, v, server, p)
-        elif type(pipeline) is list:
-            for k in pipeline:
-                fill_pipeline(k, [], server, p)
+        recurse_pipeline(pipeline, fill_pipeline, server, p)
         if not name.startswith("."):
             p["__server__"] = server
         else:
@@ -358,6 +379,37 @@ async def collect_job_data(yaml_data: dict, load_dir, store_dir) -> dict:
     return dict(zip(pipeline_jobs.keys(), result))
 
 
+def calculate_status(pipeline: dict, job_data: dict):
+    def recursive_calculate_status(name: str, p: dict) -> List[str]:
+        statuses = recurse_pipeline(p, recursive_calculate_status)
+        if "__server__" in p:
+            status = job_data[name]["status"]
+            if status is None:
+                status = "NOT RUN"
+            if statuses is None:
+                statuses = []
+            statuses.append(status)
+        if isinstance(statuses, list) and isinstance(statuses[0], list):
+            statuses = list(itertools.chain.from_iterable(statuses))
+        if statuses:
+            counter = collections.Counter(statuses)
+            if counter["FAILURE"]:
+                p["__status__"] = "FAILURE"
+            elif counter["UNSTABLE"]:
+                p["__status__"] = "UNSTABLE"
+            elif counter["In Progress"]:
+                p["__status__"] = "In Progress"
+            elif counter["SUCCESS"]:
+                p["__status__"] = "SUCCESS"
+            else:
+                p["__status__"] = "NOT RUN"
+
+        return statuses
+
+    s = recursive_calculate_status("", pipeline)
+    print(s)
+
+
 
 @click.command()
 @click.argument("jobs_file")
@@ -376,32 +428,40 @@ def main(jobs_file, user_file, verbose, store, load, auth):
         yaml_data = yaml.safe_load(file)
     pipeline_dict = collect_jobs_pipeline(yaml_data)
     job_data = asyncio.run(collect_job_data(yaml_data, load, store))
+    calculate_status(pipeline_dict, job_data)
 
 
-    console = rich.console.Console()
-    other_table = rich.table.Table(title="Other Jobs")
-    other_table.add_column("Name")
-    other_table.add_column("Serial")
-    other_table.add_column("No.")
-    other_table.add_column("Time")
-    other_table.add_column("Status")
-    other_table.add_column("URL")
-    with Progress(transient=True) as progress:
-        task = progress.add_task("Fetching data...", total=count_dict(pipeline_dict))
-        progress_fn = lambda: progress.advance(task)
-        for name, data in pipeline_dict.items():
-            add_jobs_to_table(
-                name=name,
-                job_struct=data,
-                job_data=job_data,
-                prefix="",
-                table=other_table,
-                progress_task_fn=progress_fn,
-                load_dir=load,
-                store_dir=store,
-            )
 
-    console.print(other_table)
+    # console = rich.console.Console()
+    # other_table = rich.table.Table(title="Other Jobs")
+    # other_table.add_column("Name")
+    # other_table.add_column("Serial")
+    # other_table.add_column("No.")
+    # other_table.add_column("Time")
+    # other_table.add_column("Status")
+    # other_table.add_column("URL")
+    # with Progress(transient=True) as progress:
+    #     task = progress.add_task("Fetching data...", total=count_dict(pipeline_dict))
+    #     progress_fn = lambda: progress.advance(task)
+    #     for name, data in pipeline_dict.items():
+    #         add_jobs_to_table(
+    #             name=name,
+    #             job_struct=data,
+    #             job_data=job_data,
+    #             prefix="",
+    #             table=other_table,
+    #             progress_task_fn=progress_fn,
+    #             load_dir=load,
+    #             store_dir=store,
+    #         )
+    #
+    # console.print(other_table)
+
+    elements = generate_cyto_elements(pipeline_dict, job_data)
+    display_cyto(elements)
+
+
+    print()
 
 
 if __name__ == '__main__':
