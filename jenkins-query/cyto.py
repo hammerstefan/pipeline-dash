@@ -1,6 +1,8 @@
 import collections
+import json
 from typing import List
 
+import dash as dash
 from dash import Dash, html
 import dash_cytoscape as dcyto
 
@@ -11,7 +13,7 @@ def generate_cyto_elements(job_tree: dict, job_data: dict) -> List[dict]:
         _edges = []
         for name, data in d.items():
             if not name.startswith("__") and not name.endswith("__"):
-                id = f"{parent}.{name}"
+                id = f"{parent}&{name}"
                 _nodes += [{
                     "data": {"id": id, "name": name},
                 }]
@@ -24,12 +26,17 @@ def generate_cyto_elements(job_tree: dict, job_data: dict) -> List[dict]:
                     "SUCCESS": "green",
                     "UNSTABLE": "orange",
                     "In Progress": "yellow",
+                    None: "yellow",
                     "default": "gray",
                 }
-                _nodes[-1]["classes"] += f" {status_map.get(data['__status__'], status_map['default'])}"
+                if name in job_data:
+                    _nodes[-1]["classes"] += f" {status_map.get(job_data[name]['status'], status_map['default'])}"
+                else:
+                    _nodes[-1]["classes"] += f" {status_map.get(data['__status__'], status_map['default'])}"
                 if parent:
                     _edges += [{
-                        "data": {"source": parent, "target": id}
+                        "data": {"source": parent, "target": id},
+                        "classes": f"{status_map.get(data['__status__'], status_map['default'])}"
                     }]
                 new_nodes, new_edges = get_nodes(data, id)
                 _nodes += new_nodes
@@ -54,11 +61,21 @@ def display_cyto(elements):
             layout={
                 "name": "dagre",
                 # "rankDir": "LR",
-                "ranker": "longest-path",
-                "nodeSep": "12",
+                # "ranker": "longest-path",
+                "nodeSep": "0",
+                "rankSep": "0",
+                "nodeDimensionsIncludeLabels": True,
             },
-            style={"width": "100%", "height": "2000px"},
+            style={"width": "100%", "min-height": "1000px", "height": "auto"},
             stylesheet=[
+                {
+                    "selector": "edge",
+                    "style": {
+                        "width": 10,
+                        "line-color": "#ccc",
+                        "curve-style": "bezier"
+                    },
+                },
                 {
                     "selector": ".group",
                     "style": {
@@ -79,36 +96,49 @@ def display_cyto(elements):
                 {
                     "selector": ".red",
                     "style": {
-                        "background-color": "darkred"
+                        "background-color": "darkred",
+                        "line-color": "darkred"
                     },
                 },
                 {
                     "selector": ".green",
                     "style": {
-                        "background-color": "green"
+                        "background-color": "green",
+                        "line-color": "green",
                     },
                 },
                 {
                     "selector": ".orange",
                     "style": {
-                        "background-color": "orange"
+                        "background-color": "orange",
+                        "line-color": "orange",
                     },
                 },
                 {
                     "selector": ".yellow",
                     "style": {
-                        "background-color": "yellow"
+                        "background-color": "gold",
+                        "line-color": "gold",
                     },
                 },
                 {
                     "selector": ".gray",
                     "style": {
-                        "background-color": "gray"
+                        "background-color": "gray",
+                        "line-color": "gray",
                     },
                 },
             ],
             elements=elements,
-        )
+        ),
+        html.Pre(
+            id='cytoscape-tapNodeData-json',
+            style={
+                'border': 'thin lightgrey solid',
+                'overflowX': 'scroll',
+            }
+        ),
     ])
+
 
     app.run_server(debug=True)
