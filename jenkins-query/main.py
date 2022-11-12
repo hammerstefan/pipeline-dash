@@ -30,6 +30,7 @@ import aiohttp
 from rich.progress import Progress
 
 from cyto import generate_cyto_elements, display_cyto
+from viz_plotly import generate_nx, display_plotly
 
 verbose = False
 
@@ -385,10 +386,22 @@ async def collect_job_data(pipeline_jobs: dict, load_dir, store_dir) -> dict:
 
 
 def calculate_status(pipeline: dict, job_data: dict):
-    def recursive_calculate_status(name: str, p: dict) -> List[str]:
-        statuses = recurse_pipeline(p, recursive_calculate_status)
+    def recursive_calculate_status(name: str, p: dict, serial=None) -> List[str]:
+        if serial is None:
+            serial = job_data.get(name, dict()).get("serial", None)
+        statuses = recurse_pipeline(p, recursive_calculate_status, serial)
+        old_serial = False
         if "__server__" in p:
-            status = [job_data[name]["status"]]
+            if serial is None:
+                serial = job_data[name].get("serial", None)
+            if serial is not None \
+                    and job_data[name].get("serial", "0") is not None \
+                    and float(job_data[name].get("serial", "0")) < float(serial):
+                status = ["NOT RUN"]
+                old_serial = True
+            else:
+                status = [job_data[name]["status"]]
+            p["__status__"] = status[0]
             if statuses is None:
                 statuses = []
             statuses.append(status)
@@ -396,16 +409,18 @@ def calculate_status(pipeline: dict, job_data: dict):
             statuses = list(itertools.chain.from_iterable(statuses))
         if statuses:
             counter = collections.Counter(statuses)
-            if counter["FAILURE"]:
-                p["__status__"] = "FAILURE"
+            if old_serial:
+                p["__downstream_status__"] = "NOT RUN"
+            elif counter["FAILURE"]:
+                p["__downstream_status__"] = "FAILURE"
             elif counter["UNSTABLE"]:
-                p["__status__"] = "UNSTABLE"
+                p["__downstream_status__"] = "UNSTABLE"
             elif counter["In Progress"] or counter[None]:
-                p["__status__"] = "In Progress"
+                p["__downstream_status__"] = "In Progress"
             elif counter["SUCCESS"]:
-                p["__status__"] = "SUCCESS"
+                p["__downstream_status__"] = "SUCCESS"
             else:
-                p["__status__"] = "NOT RUN"
+                p["__downstream_status__"] = "NOT RUN"
 
         return statuses
 
@@ -466,33 +481,35 @@ def recurse(jobs_file_in, jobs_file_out, verbose, store, load):
     pipeline_dict = add_recursive_jobs_pipeline(pipeline_dict, job_data)
     calculate_status(pipeline_dict, job_data)
 
-    console = rich.console.Console()
-    other_table = rich.table.Table(title="Other Jobs")
-    other_table.add_column("Name")
-    other_table.add_column("Serial")
-    other_table.add_column("No.")
-    other_table.add_column("Time")
-    other_table.add_column("Status")
-    other_table.add_column("URL")
-    with Progress(transient=True) as progress:
-        task = progress.add_task("Fetching data...", total=count_dict(pipeline_dict))
-        progress_fn = lambda: progress.advance(task)
-        for name, data in pipeline_dict.items():
-            if name.startswith("__") and name.endswith("__"): continue
-            add_jobs_to_table(
-                name=name,
-                job_struct=data,
-                job_data=job_data,
-                prefix="",
-                table=other_table,
-                progress_task_fn=progress_fn,
-                load_dir=load,
-                store_dir=store,
-            )
-
-    console.print(other_table)
-    elements = generate_cyto_elements(pipeline_dict, job_data)
-    display_cyto(elements)
+    # console = rich.console.Console()
+    # other_table = rich.table.Table(title="Other Jobs")
+    # other_table.add_column("Name")
+    # other_table.add_column("Serial")
+    # other_table.add_column("No.")
+    # other_table.add_column("Time")
+    # other_table.add_column("Status")
+    # other_table.add_column("URL")
+    # with Progress(transient=True) as progress:
+    #     task = progress.add_task("Fetching data...", total=count_dict(pipeline_dict))
+    #     progress_fn = lambda: progress.advance(task)
+    #     for name, data in pipeline_dict.items():
+    #         if name.startswith("__") and name.endswith("__"): continue
+    #         add_jobs_to_table(
+    #             name=name,
+    #             job_struct=data,
+    #             job_data=job_data,
+    #             prefix="",
+    #             table=other_table,
+    #             progress_task_fn=progress_fn,
+    #             load_dir=load,
+    #             store_dir=store,
+    #         )
+    #
+    # console.print(other_table)
+    # elements = generate_cyto_elements(pipeline_dict, job_data)
+    # display_cyto(elements)
+    graph = generate_nx(pipeline_dict, job_data)
+    display_plotly(graph)
     print()
 
 
