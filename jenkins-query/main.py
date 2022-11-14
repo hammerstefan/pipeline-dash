@@ -1,4 +1,3 @@
-import ast
 import base64
 import collections
 import hashlib
@@ -6,31 +5,24 @@ import http.client
 import itertools
 import logging
 import os
+import pathlib
 import pickle
-import urllib.request
+import time
 from typing import Union, Optional, Callable, Any, List
 
-import requests
-import browser_cookie3
-from datetime import datetime, timedelta
-from pprint import pprint
+from datetime import datetime
 
 import click as click
 import yaml
-import rich.console
-import rich.table
-import rich.text
 import json
 from urllib.parse import urlparse, urlsplit
-from bs4 import BeautifulSoup
 import mergedeep
 import asyncio
 import aiohttp
 
-from rich.progress import Progress
-
-from cyto import generate_cyto_elements, display_cyto
-from viz_plotly import generate_nx, display_plotly
+from viz_cyto import generate_cyto_elements, display_cyto
+from viz_dash import generate_nx, display_dash
+from viz_rich import display_rich_table
 
 verbose = False
 
@@ -40,6 +32,12 @@ def next_get(iterable, default):
         return next(iterable)
     except StopIteration:
         return default
+
+
+def hash_url(url_or_path: str) -> str:
+    file_name = base64.urlsafe_b64encode(url_or_path.encode())
+    hash_ = hashlib.md5(file_name).hexdigest()
+    return hash_
 
 
 async def api(session: aiohttp.ClientSession,
@@ -57,8 +55,7 @@ async def api(session: aiohttp.ClientSession,
     if depth:
         api_url += f"{q}depth={depth}"
         q = "?"
-    file_name = base64.urlsafe_b64encode(api_url.encode())
-    file_name = hashlib.md5(file_name).hexdigest()
+    file_name = hash_url(api_url)
     if load_dir:
         possible_path = os.path.join(load_dir, file_name)
         if os.path.exists(possible_path):
@@ -72,85 +69,6 @@ async def api(session: aiohttp.ClientSession,
         with open(possible_path, 'w') as f:
             json.dump(json_data, f)
     return json_data
-
-
-def authenticate(session: requests.Session, url: str, user_file: str) -> requests.Session:
-    # Ubuntu SSO authentication hack
-    # Should not be required anymore
-    sess = session
-    req = sess.get(url)
-    if req.url == url or req.url == f"{url}/":
-        return session
-    req = sess.post(req.url, data={"openid_identifier": "login.ubuntu.com"})
-
-    soup = BeautifulSoup(req.text, 'html.parser')
-    s2 = soup.find(id="openid_message")
-    url2 = s2.attrs["action"]
-    data = {i.attrs["name"]: i.attrs["value"] for i in s2.find_all("input", attrs={"name": True})}
-    req2 = sess.post(url2, data)
-    if req2.url == url or req2.url == f"{url}/":
-        return session
-    soup = BeautifulSoup(req2.text, 'html.parser')
-    s2 = soup.find("form", id="login-form")
-    url = "https://" + urlparse(req2.url).netloc + s2.attrs["action"]
-    data = {
-        i.attrs["name"]: i.attrs["value"] if "value" in i.attrs else ""
-        for i in s2.find_all("input", attrs={"name": True})
-    }
-    data2 = {}
-    for key in ["csrfmiddlewaretoken", "user-intentions", "openid.usernamesecret"]:
-        data2[key] = data[key]
-    with open(user_file) as file:
-        user_data = yaml.safe_load(file)
-    data2["email"] = user_data["email"]
-    data2["password"] = user_data["password"]
-    data2["continue"] = ""
-    req3 = sess.post(
-        url,
-        data2,
-        headers={
-            "Referer": url,
-        },
-    )
-    token = input("2FA Token: ")
-    data4 = {}
-    soup = BeautifulSoup(req3.text, 'html.parser')
-    s3 = soup.find("form", id="login-form")
-    data = {
-        i.attrs["name"]: i.attrs["value"] if "value" in i.attrs else ""
-        for i in s3.find_all("input", attrs={"name": True})
-    }
-    for key in ["csrfmiddlewaretoken", "openid.usernamesecret"]:
-        data4[key] = data[key]
-    data4["continue"] = ""
-    data4["oath_token"] = token
-    req4 = sess.post(
-        req3.url,
-        data4,
-        headers={
-            "Referer": req3.url,
-        },
-    )
-
-    if "device-verify" in req4.url:
-        soup = BeautifulSoup(req4.text, 'html.parser')
-        s4 = soup.find("form", id="login-form")
-        data = {
-            i.attrs["name"]: i.attrs["value"] if "value" in i.attrs else ""
-            for i in s4.find_all("input", attrs={"name": True})
-        }
-        data5 = {}
-        for key in ["csrfmiddlewaretoken", "openid.usernamesecret"]:
-            data5[key] = data[key]
-        data5["continue"] = ""
-        req5 = sess.post(
-            req4.url,
-            data5,
-            headers={
-                "Referer": req4.url,
-            },
-        )
-    return sess
 
 
 def do_verbose():
@@ -188,7 +106,6 @@ def recurse_pipeline(pipeline: Union[dict, list],
             if ret is not None:
                 rets.append(ret)
     return rets if rets else None
-
 
 
 def collect_jobs_dict(yaml_data: dict) -> dict:
@@ -231,14 +148,6 @@ def collect_jobs_pipeline(yaml_data: dict) -> dict:
                 fill_pipeline(k, [], server, tmp)
         mergedeep.merge(struct, tmp, strategy=mergedeep.Strategy.TYPESAFE_ADDITIVE)
     return struct
-
-
-def init_session(session, servers, user_file):
-    if os.path.exists(".cookies"):
-        with open(".cookies", "rb") as f:
-            session.cookies.update(pickle.load(f))
-    for server in servers:
-        authenticate(session, server, user_file)
 
 
 async def get_job_data(session, server, job, load_dir, store_dir):
@@ -287,90 +196,8 @@ async def get_job_data(session, server, job, load_dir, store_dir):
     return data
 
 
-def add_jobs_to_table(name: str,
-                      job_struct: dict,
-                      job_data: dict,
-                      prefix: str,
-                      table: rich.table.Table,
-                      progress_task_fn: Callable,
-                      load_dir: Optional[str],
-                      store_dir: Optional[str],
-                      ):
-    def status(str):
-        if str is None:
-            str = "In Progress"
-        text = rich.text.Text(str)
-        if str == "SUCCESS":
-            text.stylize("green")
-        elif str == "UNSTABLE":
-            text.stylize("bold orange")
-        elif str == "In Progress":
-            text.stylize("yellow")
-        elif str == "FAILURE":
-            text.stylize("bold red3")
-        return text
-
-
-    def add_prefix(prefix: str) -> str:
-        if not len(prefix):
-            prefix = "|-"
-        else:
-            prefix = f" {prefix}"
-        return prefix
-
-    def remove_prefix(prefix: str) -> str:
-        if prefix == "|-":
-            prefix = ""
-        elif len(prefix):
-            prefix = prefix[1:]
-        return prefix
-
-    if "__server__" in job_struct:
-        fields = job_data[name]
-        table.add_row(
-            prefix + fields["name"],
-            fields["serial"],
-            fields["build_num"],
-            fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None ,
-            status(fields["status"]),
-            fields["url"],
-            )
-        if fields["timestamp"] and datetime.now() - fields["timestamp"] > timedelta(hours=24):
-            table.rows[-1].style = "dim"
-        progress_task_fn()
-    else:
-        table.add_row(prefix + name, style="bold")
-
-    for next_name in job_struct:
-        if next_name.startswith("__") and next_name.endswith("__"):
-            continue
-        prefix = add_prefix(prefix)
-        add_jobs_to_table(
-            name=next_name,
-            job_struct=job_struct[next_name],
-            job_data=job_data,
-            prefix=prefix,
-            table=table,
-            progress_task_fn=progress_task_fn,
-            load_dir=load_dir,
-            store_dir=store_dir,
-        )
-        prefix = remove_prefix(prefix)
-
-
-def count_dict(d):
-    return sum([count_dict(v) if isinstance(v, dict) else 1 for v in d.values()])
-
-
 async def collect_job_data(pipeline_jobs: dict, load_dir, store_dir) -> dict:
-    # session = requests.Session()
     async with aiohttp.ClientSession() as session:
-    # if auth:
-    #     init_session(
-    #         session,
-    #         (s for s in yaml_data["servers"] if yaml_data["servers"][s]["authenticate"]),
-    #         user_file,
-    #     )
 
         pipeline_promises = dict()
         for name, server in pipeline_jobs.items():
@@ -378,9 +205,6 @@ async def collect_job_data(pipeline_jobs: dict, load_dir, store_dir) -> dict:
             pipeline_promises[name] = fields_promise
 
         result = await asyncio.gather(*pipeline_promises.values())
-
-    # with open(".cookies", "wb") as f:
-    #     pickle.dump(session.cookies, f)
 
     return dict(zip(pipeline_jobs.keys(), result))
 
@@ -441,6 +265,33 @@ def add_recursive_jobs_pipeline(pipeline: dict, job_data: dict) -> dict:
     return pipeline
 
 
+def recurse_downstream(job_data: dict, load: str, store: str, jobs_cache_file: pathlib.Path):
+    def get_to_fetch(job_data_: dict) -> dict:
+        to_fetch_ = dict()
+        for k, v in job_data_.items():
+            for name in v.get("downstream", []):
+                if name not in job_data_:
+                    to_fetch_[name] = v["downstream"][name]
+        return to_fetch_
+
+    to_fetch_cache = dict()
+    if jobs_cache_file.exists():
+        with open(jobs_cache_file, "rb") as f:
+            to_fetch = pickle.load(f)
+            job_data2 = asyncio.run(collect_job_data(to_fetch, load, store))
+            job_data.update(job_data2)
+            to_fetch_cache = to_fetch.copy()
+    to_fetch = get_to_fetch(job_data)
+    to_fetch_cache.update(to_fetch)
+    while to_fetch:
+        job_data2 = asyncio.run(collect_job_data(to_fetch, load, store))
+        job_data.update(job_data2)
+        to_fetch = get_to_fetch(job_data2)
+        to_fetch_cache.update(to_fetch)
+
+    with open(jobs_cache_file, "wb") as f:
+        pickle.dump(to_fetch_cache, f)
+
 
 @click.group()
 def cli():
@@ -449,68 +300,34 @@ def cli():
 
 @cli.command()
 @click.argument("jobs_file_in")
-@click.argument("jobs_file_out")
 @click.option("--verbose", default=False)
+@click.option("--cache", help="Directory to cache data", default=f"{pathlib.Path(__file__).parent.resolve()}/.cache")
 @click.option("--store", help="Directory to store Jenkins JSON data")
 @click.option("--load", help="Directory to load Jenkins JSON data")
-def recurse(jobs_file_in, jobs_file_out, verbose, store, load):
+def recurse(jobs_file_in, verbose, cache, store, load):
     if verbose:
         do_verbose()
     if store:
         os.makedirs(store, exist_ok=True)
+    start_time = time.process_time()
     with open(jobs_file_in) as file:
         yaml_data = yaml.safe_load(file)
     job_data = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
-
-    to_fetch = dict()
-    for k, v in job_data.items():
-        for name in v["downstream"]:
-            if name not in job_data:
-                to_fetch[name] = v["downstream"][name]
-    while to_fetch:
-        job_data2 = asyncio.run(collect_job_data(to_fetch, load, store))
-        job_data.update(job_data2)
-        to_fetch = dict()
-        for k, v in job_data2.items():
-            if "downstream" not in v: continue
-            for name in v["downstream"]:
-                if name not in job_data:
-                    to_fetch[name] = v["downstream"][name]
+    hash_ = hash_url(str(pathlib.Path(jobs_file_in).absolute().resolve()))
+    os.makedirs(cache, exist_ok=True)
+    jobs_cache_file = pathlib.Path(cache, hash_)
+    recurse_downstream(job_data, load, store, jobs_cache_file)
 
     pipeline_dict = collect_jobs_pipeline(yaml_data)
     pipeline_dict = add_recursive_jobs_pipeline(pipeline_dict, job_data)
     calculate_status(pipeline_dict, job_data)
+    end_time = time.process_time()
+    print(f"Loaded {len(job_data)} jobs in {end_time-start_time} sec")
 
-    # console = rich.console.Console()
-    # other_table = rich.table.Table(title="Other Jobs")
-    # other_table.add_column("Name")
-    # other_table.add_column("Serial")
-    # other_table.add_column("No.")
-    # other_table.add_column("Time")
-    # other_table.add_column("Status")
-    # other_table.add_column("URL")
-    # with Progress(transient=True) as progress:
-    #     task = progress.add_task("Fetching data...", total=count_dict(pipeline_dict))
-    #     progress_fn = lambda: progress.advance(task)
-    #     for name, data in pipeline_dict.items():
-    #         if name.startswith("__") and name.endswith("__"): continue
-    #         add_jobs_to_table(
-    #             name=name,
-    #             job_struct=data,
-    #             job_data=job_data,
-    #             prefix="",
-    #             table=other_table,
-    #             progress_task_fn=progress_fn,
-    #             load_dir=load,
-    #             store_dir=store,
-    #         )
-    #
-    # console.print(other_table)
+    # display_rich_table(pipeline_dict, job_data, load, store)
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
-    graph = generate_nx(pipeline_dict, job_data)
-    display_plotly(graph)
-    print()
+    display_dash(pipeline_dict, job_data)
 
 
 @cli.command()
@@ -532,38 +349,10 @@ def main(jobs_file, user_file, verbose, store, load, auth):
     job_data = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
     calculate_status(pipeline_dict, job_data)
 
-
-
-    console = rich.console.Console()
-    other_table = rich.table.Table(title="Other Jobs")
-    other_table.add_column("Name")
-    other_table.add_column("Serial")
-    other_table.add_column("No.")
-    other_table.add_column("Time")
-    other_table.add_column("Status")
-    other_table.add_column("URL")
-    with Progress(transient=True) as progress:
-        task = progress.add_task("Fetching data...", total=count_dict(pipeline_dict))
-        progress_fn = lambda: progress.advance(task)
-        for name, data in pipeline_dict.items():
-            add_jobs_to_table(
-                name=name,
-                job_struct=data,
-                job_data=job_data,
-                prefix="",
-                table=other_table,
-                progress_task_fn=progress_fn,
-                load_dir=load,
-                store_dir=store,
-            )
-
-    console.print(other_table)
+    display_rich_table(pipeline_dict, job_data, load, store)
 
     elements = generate_cyto_elements(pipeline_dict, job_data)
     display_cyto(elements)
-
-
-    print()
 
 
 if __name__ == '__main__':
