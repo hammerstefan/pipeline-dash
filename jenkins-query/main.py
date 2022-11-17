@@ -8,7 +8,8 @@ import os
 import pathlib
 import pickle
 import time
-from typing import Union, Optional, Callable, Any, List
+import uuid
+from typing import Union, Optional, List
 
 from datetime import datetime
 
@@ -20,9 +21,8 @@ import mergedeep
 import asyncio
 import aiohttp
 
-from viz_cyto import generate_cyto_elements, display_cyto
-from viz_dash import generate_nx, display_dash
-from viz_rich import display_rich_table
+from pipeline_utils import recurse_pipeline
+from viz.dash.viz_dash import display_dash
 
 verbose = False
 
@@ -82,32 +82,6 @@ def do_verbose():
     requests_log.propagate = True
 
 
-def recurse_pipeline(pipeline: Union[dict, list],
-                     fn: Callable[[str, Union[dict, list], ...], Any],
-                     *args,
-                     **kwargs):
-    rets = []
-    if isinstance(pipeline, dict):
-        for k, v in pipeline.items():
-            if k.startswith("__") and k.endswith("__"):
-                continue
-            ret = fn(k, v, *args, **kwargs)
-            if ret is not None:
-                rets.append(ret)
-    elif isinstance(pipeline, list):
-        for k in pipeline:
-            if type(k) is dict:
-                _name = next(iter(k))
-            else:
-                _name = k
-            if _name.startswith("__") and _name.endswith("__"):
-                continue
-            ret = fn(_name, [], *args, **kwargs)
-            if ret is not None:
-                rets.append(ret)
-    return rets if rets else None
-
-
 def collect_jobs_dict(yaml_data: dict) -> dict:
     def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
         recurse_pipeline(pipeline, fill_pipeline, server, out_struct)
@@ -130,12 +104,13 @@ def collect_jobs_pipeline(yaml_data: dict) -> dict:
         p = {}
         recurse = pipeline["recurse"] if "recurse" in pipeline else False
         recurse_pipeline(pipeline, fill_pipeline, server, p)
-        if not name.startswith("."):
+        if name and not name.startswith("."):
             p["__server__"] = server
             if recurse:
                 p["__recurse__"] = recurse
         else:
             name = name[1:]
+        p["__uuid__"] = str(uuid.uuid4())
         out_struct[name] = p
 
     struct = collections.OrderedDict()
@@ -147,6 +122,7 @@ def collect_jobs_pipeline(yaml_data: dict) -> dict:
             else:
                 fill_pipeline(k, [], server, tmp)
         mergedeep.merge(struct, tmp, strategy=mergedeep.Strategy.TYPESAFE_ADDITIVE)
+    struct["__uuid__"] = str(uuid.uuid4())
     return struct
 
 
@@ -216,8 +192,6 @@ def calculate_status(pipeline: dict, job_data: dict):
         statuses = recurse_pipeline(p, recursive_calculate_status, serial)
         old_serial = False
         if "__server__" in p:
-            if serial is None:
-                serial = job_data[name].get("serial", None)
             if serial is not None \
                     and job_data[name].get("serial", "0") is not None \
                     and float(job_data[name].get("serial", "0")) < float(serial):
@@ -259,6 +233,7 @@ def add_recursive_jobs_pipeline(pipeline: dict, job_data: dict) -> dict:
                 pipeline[k] = {
                     "__server__": v
                 }
+        pipeline.setdefault("__uuid__", str(uuid.uuid4()))
         recurse_pipeline(pipeline, fill_pipeline)
 
     fill_pipeline("", pipeline)
@@ -333,26 +308,38 @@ def recurse(jobs_file_in, verbose, cache, store, load):
 @cli.command()
 @click.argument("jobs_file")
 @click.option("--user-file", help="User file if server authentication is required")
+@click.option("--recurse", is_flag=True, help="Recursively fetch job data", default=False)
 @click.option("--verbose", default=False)
+@click.option("--cache", help="Directory to cache data", default=f"{pathlib.Path(__file__).parent.resolve()}/.cache")
 @click.option("--store", help="Directory to store Jenkins JSON data")
 @click.option("--load", help="Directory to load Jenkins JSON data")
 @click.option("--auth/--no-auth", default=True, help="Perform login.ubuntu.com SSO authentication")
-def main(jobs_file, user_file, verbose, store, load, auth):
+def main(jobs_file, user_file, recurse, verbose, cache, store, load, auth):
     if verbose:
         do_verbose()
     if store:
         os.makedirs(store, exist_ok=True)
-
+    start_time = time.process_time()
     with open(jobs_file) as file:
         yaml_data = yaml.safe_load(file)
-    pipeline_dict = collect_jobs_pipeline(yaml_data)
     job_data = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
+    hash_ = hash_url(str(pathlib.Path(jobs_file).absolute().resolve()))
+    os.makedirs(cache, exist_ok=True)
+    if recurse:
+        jobs_cache_file = pathlib.Path(cache, hash_)
+        recurse_downstream(job_data, load, store, jobs_cache_file)
+
+    pipeline_dict = collect_jobs_pipeline(yaml_data)
+    if recurse:
+        pipeline_dict = add_recursive_jobs_pipeline(pipeline_dict, job_data)
     calculate_status(pipeline_dict, job_data)
+    end_time = time.process_time()
+    print(f"Loaded {len(job_data)} jobs in {end_time-start_time} sec")
 
-    display_rich_table(pipeline_dict, job_data, load, store)
-
-    elements = generate_cyto_elements(pipeline_dict, job_data)
-    display_cyto(elements)
+    # display_rich_table(pipeline_dict, job_data, load, store)
+    # elements = generate_cyto_elements(pipeline_dict, job_data)
+    # display_cyto(elements)
+    display_dash(pipeline_dict, job_data)
 
 
 if __name__ == '__main__':
