@@ -315,7 +315,7 @@ def get_node_labels(graph, node_text_dict):
 
 
 def generate_node_traces(graph):
-    node_trace = go.Scattergl(
+    node_trace = go.Scatter(
         x=[pos[0] for _, pos in graph.nodes.data("pos")],
         y=[pos[1] for _, pos in graph.nodes.data("pos")],
         mode='markers',
