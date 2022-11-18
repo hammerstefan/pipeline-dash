@@ -6,6 +6,7 @@ import os.path
 import time
 import webbrowser
 from collections import defaultdict
+from pprint import pprint
 from statistics import median
 from typing import List, Tuple, Set, Dict
 
@@ -16,6 +17,7 @@ import networkx as nx
 from dash import Dash, html, dcc, Input, Output, MATCH, ALL, State
 import dash_bootstrap_components as dbc
 import dash_bootstrap_templates
+from dash_extensions import enrich as de
 
 from pipeline_utils import find_pipeline
 
@@ -145,7 +147,7 @@ def generate_plot_figure(graph: networkx.Graph) -> go.Figure:
 def add_jobs_to_table(name: str,
                       job_struct: dict,
                       job_data: dict,
-                      indent=1) -> html.Details:
+                      indent=1) -> Tuple[html.Details, List[dbc.Button]]:
     details = html.Details(
         children=[],
         id={
@@ -165,8 +167,20 @@ def add_jobs_to_table(name: str,
         None: "alert-info",
         "default": "alert-dark",
     })
+    btn_diagram_list = []
     if "__server__" in job_struct:
+        btn_diagram_list.append(f"btn-diagram-{job_struct['__uuid__']}")
         fields = job_data[name]
+        btn_diagram_list.append(
+            dbc.Button(
+                html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
+                id=f"btn-diagram-{job_struct['__uuid__']}",
+                outline=True,
+                color="secondary",
+                class_name="m-1",
+                style={"padding": "1px 2px 1px 2px", }
+            )
+        )
         details.children.append(html.Summary(
             [
                 html.Span(
@@ -188,17 +202,7 @@ def add_jobs_to_table(name: str,
                     },
                 ),
                 html.Span([
-                    dbc.Button(
-                        html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
-                        id={
-                            "type": "btn-diagram",
-                            "index": job_struct['__uuid__'],
-                        },
-                        outline=True,
-                        color="secondary",
-                        class_name="m-1",
-                        style={"padding": "1px 2px 1px 2px", }
-                    ),
+                    btn_diagram_list[-1],
                     dbc.Button(
                         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
                         id={
@@ -231,6 +235,16 @@ def add_jobs_to_table(name: str,
         # if fields["timestamp"] and datetime.now() - fields["timestamp"] > timedelta(hours=24):
         #     table.rows[-1].style = "dim"
     else:
+        btn_diagram_list.append(
+            dbc.Button(
+                html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
+                id=f"btn-diagram-{job_struct['__uuid__']}",
+                outline=True,
+                color="secondary",
+                class_name="m-1",
+                style={"padding": "1px 2px 1px 2px", }
+            )
+        )
         details.children.append(html.Summary(
             [
                 html.Span(
@@ -241,17 +255,7 @@ def add_jobs_to_table(name: str,
                     }
                 ),
                 html.Span([
-                    dbc.Button(
-                        html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
-                        id={
-                            "type": "btn-diagram",
-                            "index": job_struct['__uuid__'],
-                        },
-                        outline=True,
-                        color="secondary",
-                        class_name="m-1",
-                        style={"padding": "1px 2px 1px 2px",}
-                    ),
+                    btn_diagram_list[-1],
                     dbc.Button(
                         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
                         id={
@@ -284,16 +288,17 @@ def add_jobs_to_table(name: str,
     for next_name in job_struct:
         if next_name.startswith("__") and next_name.endswith("__"):
             continue
-        d.children.append(
-            add_jobs_to_table(
-                name=next_name,
-                job_struct=job_struct[next_name],
-                job_data=job_data,
-                indent=indent + 1,
-            ))
+        children, btn_list = add_jobs_to_table(
+            name=next_name,
+            job_struct=job_struct[next_name],
+            job_data=job_data,
+            indent=indent + 1,
+        )
+        d.children.append(children)
+        btn_diagram_list += btn_list
     details.children.append(d)
 
-    return details
+    return details, btn_diagram_list
 
 
 def get_node_labels(graph, node_text_dict):
@@ -413,11 +418,15 @@ def display_dash(pipeline_dict: dict, job_data: dict):
     graph = generate_nx(pipeline_dict, job_data)
     end_time = time.process_time()
     print(f"Generated network in {end_time - start_time} sec")
-    app = Dash(
+    app = de.DashProxy(
         __name__,
         external_stylesheets=[dbc.themes.BOOTSTRAP,
                               dbc.icons.BOOTSTRAP,
-                              ]
+                              ],
+        transforms=[
+            de.TriggerTransform(),
+            # de.MultiplexerTransform(),
+        ],
     )
     dash_bootstrap_templates.load_figure_template()
     fig = generate_plot_figure(graph)
@@ -433,15 +442,17 @@ def display_dash(pipeline_dict: dict, job_data: dict):
     )
 
     job_details = []
+    btn_list = []
     for name, data in pipeline_dict.items():
         if name.startswith("__") and name.endswith("__"):
             continue
-        job_details.append(
-            add_jobs_to_table(
-                name=name,
-                job_struct=data,
-                job_data=job_data,
-            ))
+        job_children, btn_list_ = add_jobs_to_table(
+            name=name,
+            job_struct=data,
+            job_data=job_data,
+        )
+        job_details.append(job_children)
+        btn_list += btn_list_
 
     app.layout = dbc.Container(
         [
@@ -493,16 +504,6 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         className="dbc",
     )
 
-    # @app.callback(
-    #     Output('hidden-div', 'children'),
-    #     Input('pipeline-graph', 'clickData')
-    # )
-    # def display_click_data(clickData):
-    #         url = clickData["points"][0]["customdata"]["url"]
-    #         webbrowser.open(url)
-    #         return html.A(url, href=url, target="_blank")
-    #     except:
-    #         return ""
 
     app.clientside_callback(
         """
@@ -518,14 +519,17 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         prevent_initial_call = True,
     )
 
+    pprint(btn_list[0])
     @app.callback(
         Output("pipeline-graph", "figure"),
-        Input({"type": "btn-diagram", "index": ALL}, "n_clicks"),
+        inputs=[
+            de.Trigger(b, "n_clicks") for b in btn_list
+        ],
         prevent_initial_call=True,
     )
-    def click_diagram_btn(nclicks):
+    def click_diagram_btn():
         start_time = time.process_time()
-        start_id = dash.ctx.triggered_id["index"]
+        start_id = dash.ctx.triggered_id[12:]
         sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == start_id)
         graph = generate_nx(sub_dict, job_data)
         end_time = time.process_time()
