@@ -2,4 +2,7 @@
     * Currently will recurse everything if `recurse` command is used
 * Unify `main` and `recurse` commands
 * Display side pane with job data when job node is clicked
-* Display top pane with tree view of jobs
+* Handle graph scaling to viewport size 
+* Add more data to jobs table
+* Make navigation of jobs table faster
+* Add a refresh button / timer
