@@ -4,6 +4,7 @@ import itertools
 import json
 import os.path
 import time
+import uuid
 import webbrowser
 from collections import defaultdict
 from pprint import pprint
@@ -85,6 +86,20 @@ def do_layout(g: networkx.DiGraph) -> int:
     return ny
 
 
+def size_traces(scale: float,
+                node_trace: go.Scatter,
+                edge_traces: Dict[str, go.Scatter],
+                annotations: List[go.layout.Annotation]):
+    node_trace.marker.size *= scale
+    for et in edge_traces.values():
+        et.line.width *= scale
+    for an in annotations:
+        an.xshift *= scale if scale < 0 else pow(scale, 1.2)
+        an.yshift = 5
+        # an.yshift *= max(scale, 2.0)
+        an.font.size = min(max(int(an.font.size * scale), 6), 24)
+
+
 def generate_plot_figure(graph: networkx.Graph) -> go.Figure:
     start_time = time.process_time()
     # pos = nx.multipartite_layout(graph, subset_key="layer", center=(0,1))
@@ -94,7 +109,9 @@ def generate_plot_figure(graph: networkx.Graph) -> go.Figure:
     edge_traces = generate_edge_traces(graph)
 
     node_text_dict, node_trace = generate_node_traces(graph)
+
     annotations = get_node_labels(graph, node_text_dict)
+    size_traces(50/y_scale, node_trace, edge_traces, annotations)
     y_scale_limit = 100
     layoutButtons = list([
         dict(type="buttons",
@@ -134,6 +151,7 @@ def generate_plot_figure(graph: networkx.Graph) -> go.Figure:
                         # autosize=True,
                         annotations=annotations if y_scale < y_scale_limit else [],
                         updatemenus=layoutButtons,
+                        uirevision=str(uuid.uuid4()),
                     ),
                     )
     fig.update
@@ -310,6 +328,9 @@ def get_node_labels(graph, node_text_dict):
         xref="x",
         yref="y",
         text=node_text_dict.get(n, n),
+        font=dict(
+            size=12,
+        ),
         align="left",
         showarrow=False,
         yanchor="top",
@@ -329,7 +350,7 @@ def generate_node_traces(graph):
         showlegend=False,
         marker=dict(
             size=15,
-            line_width=0.1,
+            line_width=0,
         )
     )
 
@@ -426,6 +447,7 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         transforms=[
             de.TriggerTransform(),
             # de.MultiplexerTransform(),
+            de.NoOutputTransform(),
         ],
     )
     dash_bootstrap_templates.load_figure_template()
@@ -434,7 +456,7 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         id='pipeline-graph',
         figure=fig,
         style={
-            # "min-height": fig.layout.height,
+            # "min-height": fig.layout.height/4,
             "height": "90vh",
             "display": "block",
         },
@@ -519,7 +541,6 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         prevent_initial_call = True,
     )
 
-    pprint(btn_list[0])
     @app.callback(
         Output("pipeline-graph", "figure"),
         inputs=[
@@ -528,6 +549,7 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         prevent_initial_call=True,
     )
     def click_diagram_btn():
+        nonlocal fig
         start_time = time.process_time()
         start_id = dash.ctx.triggered_id[12:]
         sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == start_id)
@@ -556,6 +578,15 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         State({"type": "details-job", "index": MATCH}, "children"),
         prevent_initial_call=True,
     )
+
+    @app.callback(
+        Input("pipeline-graph", "relayoutData"),
+        prevent_initial_call=True,
+    )
+    def graph_relayout(data):
+        # TODO scale graph nodes/traces/annotations to zoom level
+        pprint(data)
+
     app.run_server(debug=True)
 
 
