@@ -13,6 +13,7 @@ import networkx as nx
 from dash import html, dcc, Input, Output, MATCH, State
 import dash_bootstrap_components as dbc
 import dash_bootstrap_templates
+from dash.exceptions import PreventUpdate
 from dash_extensions import enrich as de
 
 from pipeline_utils import find_pipeline
@@ -331,6 +332,13 @@ def display_dash(pipeline_dict: dict, job_data: dict):
                     class_name="g-2"
                 ),
                 html.Div(id="hidden-div", hidden=True),
+                html.Div(
+                    children=[
+                        html.Div(
+                            id="input-btn-diagram"
+                        )
+                    ]
+                ),
             ],
             fluid=True,
             id="dbc",
@@ -352,43 +360,43 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         prevent_initial_call = True,
     )
 
-    @app.callback(
-        Output("pipeline-graph", "figure"),
-        inputs=[
-            de.Trigger(b, "n_clicks") for b in btn_list
-        ],
-        prevent_initial_call=True,
-    )
-    def click_diagram_btn():
-        nonlocal fig
-        start_time = time.process_time()
-        start_id = dash.ctx.triggered_id[12:]
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == start_id)
-        graph = generate_nx(sub_dict, job_data)
-        end_time = time.process_time()
-        print(f"Generated network in {end_time - start_time} sec")
-        fig = generate_plot_figure(graph)
-        return fig
+    # @app.callback(
+    #     Output("pipeline-graph", "figure"),
+    #     inputs=[
+    #         de.Trigger(b, "n_clicks") for b in btn_list
+    #     ],
+    #     prevent_initial_call=True,
+    # )
+    # def click_diagram_btn():
+    #     nonlocal fig
+    #     start_time = time.process_time()
+    #     start_id = dash.ctx.triggered_id[12:]
+    #     sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == start_id)
+    #     graph = generate_nx(sub_dict, job_data)
+    #     end_time = time.process_time()
+    #     print(f"Generated network in {end_time - start_time} sec")
+    #     fig = generate_plot_figure(graph)
+    #     return fig
 
-    app.clientside_callback(
-        """
-        function(nclicks, id, open, children) {
-            open = ! open;
-            s = JSON.stringify(id, Object.keys(id).sort());
-            dom = document.getElementById(s);
-            elements = dom.getElementsByTagName("details");
-            for (let e of elements)
-                e.open = open;
-            return open;
-        }
-        """,
-        Output({"type": "details-job", "index": MATCH}, "open"),
-        Input({"type": "btn-expand", "index": MATCH}, "n_clicks"),
-        State({"type": "details-job", "index": MATCH}, "id"),
-        State({"type": "details-job", "index": MATCH}, "open"),
-        State({"type": "details-job", "index": MATCH}, "children"),
-        prevent_initial_call=True,
-    )
+    # app.clientside_callback(
+    #     """
+    #     function(nclicks, id, open, children) {
+    #         open = ! open;
+    #         s = JSON.stringify(id, Object.keys(id).sort());
+    #         dom = document.getElementById(s);
+    #         elements = dom.getElementsByTagName("details");
+    #         for (let e of elements)
+    #             e.open = open;
+    #         return open;
+    #     }
+    #     """,
+    #     Output({"type": "details-job", "index": MATCH}, "open"),
+    #     Input({"type": "btn-expand", "index": MATCH}, "n_clicks"),
+    #     State({"type": "details-job", "index": MATCH}, "id"),
+    #     State({"type": "details-job", "index": MATCH}, "open"),
+    #     State({"type": "details-job", "index": MATCH}, "children"),
+    #     prevent_initial_call=True,
+    # )
 
     @app.callback(
         Input("pipeline-graph", "relayoutData"),
@@ -412,6 +420,25 @@ def display_dash(pipeline_dict: dict, job_data: dict):
             width = "100vw" if this_toggle else None
             return dict(width=width)
     setup_click_btn_left_pane_expand()
+
+    @app.callback(
+        Output("pipeline-graph", "figure"),
+        Input("el-diagram-click", "event"),
+        prevent_initial_call=True,
+    )
+    def input_btn_diagram(e: dict):
+        uuid = e.get("detail")
+        if uuid is None:
+            raise PreventUpdate
+        nonlocal fig
+        start_time = time.process_time()
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == uuid)
+        graph = generate_nx(sub_dict, job_data)
+        end_time = time.process_time()
+        print(f"Generated network in {end_time - start_time} sec")
+        fig = generate_plot_figure(graph)
+        return fig
+
 
     app.run_server(debug=True)
 

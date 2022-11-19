@@ -3,6 +3,9 @@ from typing import Tuple, List
 
 import dash_bootstrap_components as dbc
 from dash import html
+from dash_tabulator import DashTabulator
+import dash_extensions as de
+import dash_extensions.javascript as de_js
 
 
 def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
@@ -16,8 +19,9 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
             job_struct=data,
             job_data=job_data,
         )
-        job_details.append(job_children)
+        job_details += job_children
         btn_list += btn_list_
+    ns = de_js.Namespace("myNamespace", "tabulator")
     return (
         dbc.Col(
             (
@@ -61,7 +65,36 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
                         style={"padding": "1px 2px 1px 2px", }
                     ),
                 ]),
-                dbc.ListGroup(list(dbc.ListGroupItem(p) for p in job_details)),
+                # dbc.ListGroup(list(dbc.ListGroupItem(p) for p in job_details)),
+                DashTabulator(
+                    id="jobs_table",
+                    columns=[
+                        dict(title="Name", field="name", widthGrow=1),
+                        dict(title="Serial", field="serial", width=120),
+                        dict(formatter=ns("diagramIconColFormat"),
+                             width=40,
+                             hozAlign="center",
+                             headerSort=False,
+                             cellClick=ns("diagramIconCellClick"),
+                             cssClass="table-sm",
+                             variableHeight=False,),
+                    ],
+                    data=job_details,
+                    options=dict(
+                        dataTree=True,
+                        dataTreeChildColumnCalcs=True,
+                        dataTreeChildIndent=5,
+                        rowClick=ns("rowClick"),
+                        rowFormatter=ns("rowFormat"),
+                        layout="fitColumns",
+                    ),
+                    theme="bootstrap/tabulator_bootstrap4",
+                ),
+                de.EventListener(
+                    id="el-diagram-click",
+                    events=[dict(event="clickDiagramIcon", props=["detail"])],
+                    logging=True,
+                ),
             ),
             xxl=3, xl=4, lg=5, xs=12,
             id="col-left-pane"
@@ -73,25 +106,16 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
 def add_jobs_to_table(name: str,
                       job_struct: dict,
                       job_data: dict,
-                      indent=1) -> Tuple[html.Details, List[dbc.Button]]:
-    details = html.Details(
-        children=[],
-        id={
-            "type": "details-job",
-            "index": job_struct['__uuid__'],
-        },
-        className="details-job border",
-        style={
-            "text-indent": f"{indent*.5}em",
-        }
+                      indent=1) -> Tuple[List[dict], List[dbc.Button]]:
+    details = dict(
+        _children=[],
     )
-    status_classname_map = defaultdict(lambda: "alert-dark", {
-        "FAILURE": "alert-danger",
-        "SUCCESS": "alert-success",
-        "UNSTABLE": "alert-warning",
-        "In Progress": "alert-info",
-        None: "alert-info",
-        "default": "alert-dark",
+    status_classname_map = defaultdict(lambda: "table-dark", {
+        "FAILURE": "table-danger",
+        "SUCCESS": "table-success",
+        "UNSTABLE": "table-warning",
+        "In Progress": "table-info",
+        None: "table-info",
     })
     btn_diagram_list = []
     if "__server__" in job_struct:
@@ -107,48 +131,26 @@ def add_jobs_to_table(name: str,
                 style={"padding": "1px 2px 1px 2px", }
             )
         )
-        details.children.append(html.Summary(
-            [
-                html.Span(
-                    fields["name"],
-                    style={
-                        "font-size": ".75rem",
-                        "flex-grow": "1",
-                    },
-                ),
-                html.Span(
-                    fields["serial"],
-                    style={"font-size": ".75rem", },
-                ),
-                html.Span(
-                    [""],
-                    style={
-                        # "display": "inline-block",
-                        # "width": "max-content",
-                    },
-                ),
-                html.Span([
-                    btn_diagram_list[-1],
-                    dbc.Button(
-                        html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                        id={
-                            "type": "btn-expand",
-                            "index": job_struct['__uuid__'],
-                        },
-                        outline=True,
-                        color="secondary",
-                        class_name="m-1",
-                        style={"padding": "1px 2px 1px 2px", }
-                    ), ],
-                    style={
-                        "min-width": "68px",
-                    },
-                )
-            ],
-            className=f"{status_classname_map[job_struct.get('__downstream_status__', None)]} "
-                      "d-flex justify-content-between align-items-center flex-wrap",
-            style={
-            }
+        details.update(dict(
+            name=fields["name"],
+            serial=fields["serial"],
+                # html.Span([
+                #     btn_diagram_list[-1],
+                #     dbc.Button(
+                #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
+                #         id={
+                #             "type": "btn-expand",
+                #             "index": job_struct['__uuid__'],
+                #         },
+                #         outline=True,
+                #         color="secondary",
+                #         class_name="m-1",
+                #         style={"padding": "1px 2px 1px 2px", }
+                #     ), ],
+                #     style={
+                #         "min-width": "68px",
+                #     },
+                # )
         ))
         # table.add_row(
         #     prefix + fields["name"],
@@ -171,46 +173,33 @@ def add_jobs_to_table(name: str,
                 style={"padding": "1px 2px 1px 2px", }
             )
         )
-        details.children.append(html.Summary(
-            [
-                html.Span(
-                    name,
-                    style={
-                        # "margin-left": "-0.3em",
-                        "flex-grow": "1",
-                    }
-                ),
-                html.Span([
-                    btn_diagram_list[-1],
-                    dbc.Button(
-                        html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                        id={
-                            "type": "btn-expand",
-                            "index": job_struct['__uuid__'],
-                        },
-                        outline=True,
-                        color="secondary",
-                        class_name="m-1",
-                        style={"padding": "1px 2px 1px 2px", }
-                    ), ],
-                    style={
-                        "min-width": "68px",
-                    }
-                ),
-
-            ],
-            className=f"{status_classname_map[job_struct.get('__downstream_status__', None)]} "
-                      "d-flex justify-content-between flex-wrap",
-            style={
-                "display": "revert",
-                # "width": "calc(100% - 1.1em)",
-                # "margin-left": "3em",
-            }
+        details.update(dict(
+            name=name,
+            serial=None
+                # html.Span([
+                #     btn_diagram_list[-1],
+                #     dbc.Button(
+                #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
+                #         id={
+                #             "type": "btn-expand",
+                #             "index": job_struct['__uuid__'],
+                #         },
+                #         outline=True,
+                #         color="secondary",
+                #         class_name="m-1",
+                #         style={"padding": "1px 2px 1px 2px", }
+                #     ), ],
+                #     style={
+                #         "min-width": "68px",
+                #     }
+                # ),
+                #
         ))
+    details.update(dict(
+        _class=status_classname_map[job_struct.get('__downstream_status__', None)],
+        _uuid=job_struct["__uuid__"],
+    ))
 
-    d = html.Div(
-        children=[],
-    )
     for next_name in job_struct:
         if next_name.startswith("__") and next_name.endswith("__"):
             continue
@@ -220,8 +209,7 @@ def add_jobs_to_table(name: str,
             job_data=job_data,
             indent=indent + 1,
         )
-        d.children.append(children)
+        details["_children"] += children
         btn_diagram_list += btn_list
-    details.children.append(d)
 
-    return details, btn_diagram_list
+    return [details], btn_diagram_list
