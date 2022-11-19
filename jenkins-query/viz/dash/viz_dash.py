@@ -7,6 +7,7 @@ import time
 import uuid
 import webbrowser
 from collections import defaultdict
+from functools import wraps
 from pprint import pprint
 from statistics import median
 from typing import List, Tuple, Set, Dict
@@ -21,6 +22,17 @@ import dash_bootstrap_templates
 from dash_extensions import enrich as de
 
 from pipeline_utils import find_pipeline
+
+
+def timeit(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        start_time = time.process_time()
+        ret = f(*args, **kwargs)
+        end_time = time.process_time()
+        print(f"{getattr(f, '__name__', None)} executed in {end_time - start_time} sec")
+        return ret
+    return wrapper
 
 
 def generate_nx(job_tree: dict, job_data: dict) -> networkx.DiGraph:
@@ -448,6 +460,7 @@ def display_dash(pipeline_dict: dict, job_data: dict):
             de.TriggerTransform(),
             # de.MultiplexerTransform(),
             de.NoOutputTransform(),
+            # de.OperatorTransform(),
         ],
     )
     dash_bootstrap_templates.load_figure_template()
@@ -476,56 +489,75 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         job_details.append(job_children)
         btn_list += btn_list_
 
-    app.layout = dbc.Container(
-        [
-            dbc.Row([
-                dbc.Col(
-                    (
-                        html.Div([
-                            dbc.Button(
-                                "Test",
-                                id="btn-test"
-                            ),
-                            html.Div([], id="div-test"),
-                            dbc.Button(
-                                html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
-                                id={
-                                    "type": "btn-diagram",
-                                    "index": pipeline_dict['__uuid__'],
-                                },
-                                outline=True,
-                                color="secondary",
-                                class_name="m-1",
-                                style={"padding": "1px 2px 1px 2px", }
-                            ),
-                            dbc.Button(
-                                html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                                id= {
-                                    "type": "btn-expand",
-                                    "index": pipeline_dict['__uuid__']
-                                },
-                                outline=True,
-                                color="secondary",
-                                class_name="m-1",
-                                style={"padding": "1px 2px 1px 2px", }
-                            ),
-                        ]),
-                        dbc.ListGroup(list(dbc.ListGroupItem(p) for p in job_details)),
-                    ),
-                    xxl=3, xl=4, lg=5, md=12, sm=12, xs=12),
-                dbc.Col(
-                    [dbc.Card([graph], body=True)],
-                    xxl=9, xl=8, lg=7, xs=12
-                ),
-            ],
-                class_name="g-2"
+    layout_left_pane: dbc.Col = dbc.Col(
+        (
+            html.Header(
+                [
+                    html.H3("Jenkins Job Table"),
+                    dbc.Button(
+                        html.I(className="bi-arrows-angle-expand"),
+                        id="btn-left-pane-expand",
+                        color="light",
+                    )
+                ],
+                className="d-flex justify-content-between align-items-center",
             ),
-            html.Div(id="hidden-div", hidden=True),
-        ],
-        fluid=True,
-        className="dbc",
+            html.Div([
+                dbc.Button(
+                    "Test",
+                    id="btn-test"
+                ),
+                html.Div([], id="div-test"),
+                dbc.Button(
+                    html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
+                    id={
+                        "type": "btn-diagram",
+                        "index": pipeline_dict['__uuid__'],
+                    },
+                    outline=True,
+                    color="secondary",
+                    class_name="m-1",
+                    style={"padding": "1px 2px 1px 2px", }
+                ),
+                dbc.Button(
+                    html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
+                    id={
+                        "type": "btn-expand",
+                        "index": pipeline_dict['__uuid__']
+                    },
+                    outline=True,
+                    color="secondary",
+                    class_name="m-1",
+                    style={"padding": "1px 2px 1px 2px", }
+                ),
+            ]),
+            dbc.ListGroup(list(dbc.ListGroupItem(p) for p in job_details)),
+        ),
+        xxl=3, xl=4, lg=5, xs=12,
+        id="col-left-pane"
+    )
+    layout_graph = dbc.Col(
+        [dbc.Card([graph], body=True)],
+        xxl=9, xl=8, lg=7, xs=12
     )
 
+    def layout_container() -> dbc.Container:
+        return dbc.Container(
+            [
+                dbc.Row(
+                    [
+                        layout_left_pane,
+                        layout_graph,
+                    ],
+                    class_name="g-2"
+                ),
+                html.Div(id="hidden-div", hidden=True),
+            ],
+            fluid=True,
+            id="dbc",
+            className="dbc",
+        )
+    app.layout = layout_container()
 
     app.clientside_callback(
         """
@@ -586,6 +618,21 @@ def display_dash(pipeline_dict: dict, job_data: dict):
     def graph_relayout(data):
         # TODO scale graph nodes/traces/annotations to zoom level
         pprint(data)
+
+    def setup_click_btn_left_pane_expand():
+        this_toggle = False
+
+        @app.callback(
+            Output("col-left-pane", "style"),
+            de.Trigger("btn-left-pane-expand", "n_clicks"),
+            prevent_initial_call=True,
+        )
+        def click_btn_left_pane_expand():
+            nonlocal this_toggle
+            this_toggle = not this_toggle
+            width = "100vw" if this_toggle else None
+            return dict(width=width)
+    setup_click_btn_left_pane_expand()
 
     app.run_server(debug=True)
 
