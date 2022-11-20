@@ -1,2 +1,4 @@
-from . import left_pane
-left_pane = left_pane.generate
+from . import (
+    left_pane,
+    graph_col
+)

@@ -41,6 +41,16 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
                         "Test",
                         id="btn-test"
                     ),
+                    dbc.Switch(
+                        label="Responsive",
+                        id="cb-responsive-graph",
+                        value=True,
+                        className="m-2",
+                        style=dict(
+                            display="inline-block",
+                        ),
+
+                    ),
                     html.Div([], id="div-test"),
                     dbc.Button(
                         html.I(className="bi-diagram-2", style={"font-size": "1rem"}),

@@ -17,5 +17,10 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
             document.dispatchEvent(event)
             e.cancelBubble = true
         }
+    },
+    dash: {
+        toggleReactive: function(gd, ev) {
+            console.log(gd)
+        }
     }
 })
