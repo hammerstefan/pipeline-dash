@@ -1,10 +1,7 @@
-from typing import Union, Callable, Any
+from typing import Any, Callable, Union
 
 
-def recurse_pipeline(pipeline: Union[dict, list],
-                     fn: Callable[[str, Union[dict, list], ...], Any],
-                     *args,
-                     **kwargs):
+def recurse_pipeline(pipeline: Union[dict, list], fn: Callable[[str, Union[dict, list], ...], Any], *args, **kwargs):
     rets = []
     if isinstance(pipeline, dict):
         for k, v in pipeline.items():

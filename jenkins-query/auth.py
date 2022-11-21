@@ -14,9 +14,11 @@ def init_session(session, servers, user_file):
     for server in servers:
         authenticate(session, server, user_file)
 
+
 def save_cookies(session):
     with open(".cookies", "wb") as f:
         pickle.dump(session.cookies, f)
+
 
 def authenticate(session: requests.Session, url: str, user_file: str) -> requests.Session:
     # Ubuntu SSO authentication hack
@@ -27,14 +29,14 @@ def authenticate(session: requests.Session, url: str, user_file: str) -> request
         return session
     req = sess.post(req.url, data={"openid_identifier": "login.ubuntu.com"})
 
-    soup = BeautifulSoup(req.text, 'html.parser')
+    soup = BeautifulSoup(req.text, "html.parser")
     s2 = soup.find(id="openid_message")
     url2 = s2.attrs["action"]
     data = {i.attrs["name"]: i.attrs["value"] for i in s2.find_all("input", attrs={"name": True})}
     req2 = sess.post(url2, data)
     if req2.url == url or req2.url == f"{url}/":
         return session
-    soup = BeautifulSoup(req2.text, 'html.parser')
+    soup = BeautifulSoup(req2.text, "html.parser")
     s2 = soup.find("form", id="login-form")
     url = "https://" + urlparse(req2.url).netloc + s2.attrs["action"]
     data = {
@@ -58,7 +60,7 @@ def authenticate(session: requests.Session, url: str, user_file: str) -> request
     )
     token = input("2FA Token: ")
     data4 = {}
-    soup = BeautifulSoup(req3.text, 'html.parser')
+    soup = BeautifulSoup(req3.text, "html.parser")
     s3 = soup.find("form", id="login-form")
     data = {
         i.attrs["name"]: i.attrs["value"] if "value" in i.attrs else ""
@@ -77,7 +79,7 @@ def authenticate(session: requests.Session, url: str, user_file: str) -> request
     )
 
     if "device-verify" in req4.url:
-        soup = BeautifulSoup(req4.text, 'html.parser')
+        soup = BeautifulSoup(req4.text, "html.parser")
         s4 = soup.find("form", id="login-form")
         data = {
             i.attrs["name"]: i.attrs["value"] if "value" in i.attrs else ""
@@ -95,4 +97,3 @@ def authenticate(session: requests.Session, url: str, user_file: str) -> request
             },
         )
     return sess
-

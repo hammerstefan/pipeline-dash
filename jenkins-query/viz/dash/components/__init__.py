@@ -1,4 +1,1 @@
-from . import (
-    left_pane,
-    graph_col
-)
+from . import graph_col, left_pane

@@ -7,15 +7,16 @@ import rich.text
 from rich.progress import Progress
 
 
-def add_jobs_to_table(name: str,
-                      job_struct: dict,
-                      job_data: dict,
-                      prefix: str,
-                      table: rich.table.Table,
-                      progress_task_fn: Callable,
-                      load_dir: Optional[str],
-                      store_dir: Optional[str],
-                      ):
+def add_jobs_to_table(
+    name: str,
+    job_struct: dict,
+    job_data: dict,
+    prefix: str,
+    table: rich.table.Table,
+    progress_task_fn: Callable,
+    load_dir: Optional[str],
+    store_dir: Optional[str],
+):
     def status(str):
         if str is None:
             str = "In Progress"
@@ -50,10 +51,10 @@ def add_jobs_to_table(name: str,
             prefix + fields["name"],
             fields["serial"],
             fields["build_num"],
-            fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None ,
+            fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None,
             status(fields["status"]),
             fields["url"],
-            )
+        )
         if fields["timestamp"] and datetime.now() - fields["timestamp"] > timedelta(hours=24):
             table.rows[-1].style = "dim"
         progress_task_fn()

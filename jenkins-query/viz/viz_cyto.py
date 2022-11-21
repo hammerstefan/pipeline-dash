@@ -1,10 +1,7 @@
-import collections
-import json
 from typing import List
 
-import dash as dash
-from dash import Dash, html
 import dash_cytoscape as dcyto
+from dash import Dash, html
 
 
 def generate_cyto_elements(job_tree: dict, job_data: dict) -> List[dict]:
@@ -14,9 +11,11 @@ def generate_cyto_elements(job_tree: dict, job_data: dict) -> List[dict]:
         for name, data in d.items():
             if not name.startswith("__") and not name.endswith("__"):
                 id = f"{parent}&{name}"
-                _nodes += [{
-                    "data": {"id": id, "name": name},
-                }]
+                _nodes += [
+                    {
+                        "data": {"id": id, "name": name},
+                    }
+                ]
                 if "__server__" not in data:
                     _nodes[-1]["classes"] = "group"
                 else:
@@ -34,10 +33,12 @@ def generate_cyto_elements(job_tree: dict, job_data: dict) -> List[dict]:
                 else:
                     _nodes[-1]["classes"] += f" {status_map.get(data['__status__'], status_map['default'])}"
                 if parent:
-                    _edges += [{
-                        "data": {"source": parent, "target": id},
-                        "classes": f"{status_map.get(data['__status__'], status_map['default'])}"
-                    }]
+                    _edges += [
+                        {
+                            "data": {"source": parent, "target": id},
+                            "classes": f"{status_map.get(data['__status__'], status_map['default'])}",
+                        }
+                    ]
                 new_nodes, new_edges = get_nodes(data, id)
                 _nodes += new_nodes
                 _edges += new_edges
@@ -51,94 +52,86 @@ def display_cyto(elements):
     dcyto.load_extra_layouts()
     app = Dash(__name__)
 
-    app.layout = html.Div([
-        dcyto.Cytoscape(
-            id="cytoscape-elements-basic",
-            # layout={
-            #     "name": "breadthfirst",
-            #     "directed": True,
-            # },
-            layout={
-                "name": "dagre",
-                # "rankDir": "LR",
-                # "ranker": "longest-path",
-                "nodeSep": "0",
-                "rankSep": "0",
-                "nodeDimensionsIncludeLabels": True,
-            },
-            style={"width": "100%", "min-height": "1000px", "height": "auto"},
-            stylesheet=[
-                {
-                    "selector": "edge",
-                    "style": {
-                        "width": 10,
-                        "line-color": "#ccc",
-                        "curve-style": "bezier"
-                    },
+    app.layout = html.Div(
+        [
+            dcyto.Cytoscape(
+                id="cytoscape-elements-basic",
+                # layout={
+                #     "name": "breadthfirst",
+                #     "directed": True,
+                # },
+                layout={
+                    "name": "dagre",
+                    # "rankDir": "LR",
+                    # "ranker": "longest-path",
+                    "nodeSep": "0",
+                    "rankSep": "0",
+                    "nodeDimensionsIncludeLabels": True,
                 },
-                {
-                    "selector": ".group",
-                    "style": {
-                        "content": "data(name)"
+                style={"width": "100%", "min-height": "1000px", "height": "auto"},
+                stylesheet=[
+                    {
+                        "selector": "edge",
+                        "style": {"width": 10, "line-color": "#ccc", "curve-style": "bezier"},
                     },
-                },
-                {
-                    "selector": ".job",
-                    "style": {
-                        "content": "data(name)",
-                        "text-rotation": "45",
-                        "text-halign": "right",
-                        "text-valign": "center",
-                        "text-margin-x": "-10",
-                        "text-margin-y": "15",
+                    {
+                        "selector": ".group",
+                        "style": {"content": "data(name)"},
                     },
-                },
-                {
-                    "selector": ".red",
-                    "style": {
-                        "background-color": "darkred",
-                        "line-color": "darkred"
+                    {
+                        "selector": ".job",
+                        "style": {
+                            "content": "data(name)",
+                            "text-rotation": "45",
+                            "text-halign": "right",
+                            "text-valign": "center",
+                            "text-margin-x": "-10",
+                            "text-margin-y": "15",
+                        },
                     },
-                },
-                {
-                    "selector": ".green",
-                    "style": {
-                        "background-color": "green",
-                        "line-color": "green",
+                    {
+                        "selector": ".red",
+                        "style": {"background-color": "darkred", "line-color": "darkred"},
                     },
-                },
-                {
-                    "selector": ".orange",
-                    "style": {
-                        "background-color": "orange",
-                        "line-color": "orange",
+                    {
+                        "selector": ".green",
+                        "style": {
+                            "background-color": "green",
+                            "line-color": "green",
+                        },
                     },
-                },
-                {
-                    "selector": ".yellow",
-                    "style": {
-                        "background-color": "gold",
-                        "line-color": "gold",
+                    {
+                        "selector": ".orange",
+                        "style": {
+                            "background-color": "orange",
+                            "line-color": "orange",
+                        },
                     },
-                },
-                {
-                    "selector": ".gray",
-                    "style": {
-                        "background-color": "gray",
-                        "line-color": "gray",
+                    {
+                        "selector": ".yellow",
+                        "style": {
+                            "background-color": "gold",
+                            "line-color": "gold",
+                        },
                     },
+                    {
+                        "selector": ".gray",
+                        "style": {
+                            "background-color": "gray",
+                            "line-color": "gray",
+                        },
+                    },
+                ],
+                elements=elements,
+            ),
+            html.Pre(
+                id="cytoscape-tapNodeData-json",
+                style={
+                    "border": "thin lightgrey solid",
+                    "overflowX": "scroll",
                 },
-            ],
-            elements=elements,
-        ),
-        html.Pre(
-            id='cytoscape-tapNodeData-json',
-            style={
-                'border': 'thin lightgrey solid',
-                'overflowX': 'scroll',
-            }
-        ),
-    ])
-
+            ),
+        ]
+    )
 
     app.run_server(debug=True)
