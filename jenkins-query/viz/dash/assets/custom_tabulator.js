@@ -18,6 +18,16 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
             const event = new CustomEvent("clickDiagramIcon", {detail: uuid})
             document.dispatchEvent(event)
             e.cancelBubble = true
-        }
+        },
+        nameHeaderFilter: function(headerValue, rowValue, rowData, filterParams) {
+            re = new RegExp(headerValue, 'i');
+            rowMatch = re.test(rowValue);
+            console.log(rowValue);
+            console.log(rowData);
+            function filt(rd) {
+                return re.test(rd.name) || rd?._children?.some(filt);
+            }
+            return filt(rowData);
+        },
     },
 })

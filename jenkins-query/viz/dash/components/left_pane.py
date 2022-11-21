@@ -78,7 +78,15 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
                 DashTabulator(
                     id="jobs_table",
                     columns=[
-                        dict(title="Name", field="name", minWidth=200, widthGrow=3, responsive=0),
+                        dict(
+                            field="name",
+                            headerFilter="input",
+                            headerFilterFunc=ns("nameHeaderFilter"),
+                            minWidth=200,
+                            responsive=0,
+                            title="Name",
+                            widthGrow=3,
+                        ),
                         dict(title="Serial", field="serial", minWidth=120, widthGrow=0, responsive=3),
                         # dict(title="No.", field="build_num"),
                         dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
@@ -107,6 +115,7 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
                     data=job_details,
                     options=dict(
                         dataTree=True,
+                        dataTreeFilter=True,
                         dataTreeChildColumnCalcs=True,
                         dataTreeChildIndent=5,
                         layout="fitColumns",
