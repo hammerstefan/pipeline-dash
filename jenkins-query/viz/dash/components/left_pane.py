@@ -79,10 +79,10 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
                     id="jobs_table",
                     columns=[
                         dict(title="Name", field="name", minWidth=200, widthGrow=3, responsive=0),
-                        dict(title="Serial", field="serial", minWidth=120, widthGrow=0),
+                        dict(title="Serial", field="serial", minWidth=120, widthGrow=0, responsive=3),
                         # dict(title="No.", field="build_num"),
                         dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
-                        dict(title="Status", field="status", minWidth=90, widthGrow=1, responsive=5),
+                        dict(title="Status", field="status", minWidth=90, widthGrow=1, responsive=2),
                         dict(
                             title="Job",
                             field="url",
@@ -207,7 +207,8 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
         details.update(
             dict(
                 name=name,
-                serial=None
+                serial=None,
+                status=job_struct.get("__downstream_status__", None),
                 # html.Span([
                 #     btn_diagram_list[-1],
                 #     dbc.Button(
