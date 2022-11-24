@@ -1,16 +1,20 @@
 import time
 from functools import wraps
+from pprint import pprint
+from typing import Callable
 
-import dash_bootstrap_components as dbc
-import dash_bootstrap_templates
-from dash import html, Input, Output, State
-from dash.exceptions import PreventUpdate
-from dash_extensions import enrich as de
+import dash_bootstrap_components as dbc  # type: ignore
+import dash_bootstrap_templates  # type: ignore
+from dash import html, Input, Output, State  # type: ignore
+from dash.exceptions import PreventUpdate  # type: ignore
+from dash_extensions import enrich as de  # type: ignore
 
-import viz.dash.components.jobs_pipeline_fig
-from pipeline_utils import find_pipeline
-from viz.dash import components
-from viz.dash.network_graph import generate_nx
+import jenkins_query.viz.dash.components.jobs_pipeline_fig
+from jenkins_query.pipeline_utils import find_pipeline
+from . import components
+from .components.aio import ButtonSplitOption
+from .network_graph import generate_nx
+from .partial_callback import PartialCallback
 
 
 def timeit(f):
@@ -25,7 +29,8 @@ def timeit(f):
     return wrapper
 
 
-def display_dash(pipeline_dict: dict, job_data: dict):
+def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
+    pipeline_dict, job_data = get_job_data_fn()
     graph = generate_nx(pipeline_dict, job_data)
     app = de.DashProxy(
         __name__,
@@ -42,7 +47,19 @@ def display_dash(pipeline_dict: dict, job_data: dict):
     )
     dash_bootstrap_templates.load_figure_template()
 
-    layout_left_pane, btn_list = components.left_pane.generate(pipeline_dict, job_data)
+    def callback_refresh(n: components.aio.ButtonSplitOption.Output):
+        # TODO: don't regen the world just to refresh some data from Jenkins
+        pipeline_dict_, job_data_ = get_job_data_fn()
+        graph_ = generate_nx(pipeline_dict_, job_data_)
+        fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
+        return fig_
+
+    callback = PartialCallback(output=Output("pipeline-graph", "figure"), inputs=[], function=callback_refresh)
+
+    left_pane = components.LeftPane(
+        app, pipeline_dict, job_data, callbacks=components.LeftPane.Callbacks(refresh=callback)
+    )
+
     layout_graph, fig = components.graph_col.generate(graph)
 
     def layout_container() -> dbc.Container:
@@ -50,7 +67,7 @@ def display_dash(pipeline_dict: dict, job_data: dict):
             [
                 dbc.Row(
                     [
-                        layout_left_pane,
+                        left_pane,
                         layout_graph,
                     ],
                     class_name="g-2",
@@ -112,16 +129,8 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         if not delta:
             if "autosize" in data or "yaxis.autorange" in data:
                 delta = None
-                # fig.layout.autosize = True
             else:
                 raise PreventUpdate
-        # else:
-        #     fig.layout.autosize = False
-        #     fig.layout.yaxis.range = [data['yaxis.range[0]'], data['yaxis.range[1]']]
-        #     if 'xaxis.range[0]' in data and 'xaxis.range[1]' in data:
-        #         fig.layout.xaxis.range = [data['xaxis.range[0]'], data['xaxis.range[1]']]
-        #     else:
-        #         fig.layout.xaxis.autorange = True
 
         components.jobs_pipeline_fig.resize_fig_data_from_y_delta(figure, delta)
         return figure
@@ -157,7 +166,7 @@ def display_dash(pipeline_dict: dict, job_data: dict):
         graph = generate_nx(sub_dict, job_data)
         end_time = time.process_time()
         print(f"Generated network in {end_time - start_time} sec")
-        fig = viz.dash.components.jobs_pipeline_fig.generate_plot_figure(graph)
+        fig = components.jobs_pipeline_fig.generate_plot_figure(graph)
         return fig
 
     @app.callback(

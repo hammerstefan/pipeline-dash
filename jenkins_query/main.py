@@ -228,13 +228,13 @@ def calculate_status(pipeline: dict, job_data: dict):
 
 
 def add_recursive_jobs_pipeline(pipeline: dict, job_data: dict) -> dict:
-    def fill_pipeline(name: str, pipeline: Union[dict, list]):
-        if "__server__" in pipeline and name in job_data and "downstream" in job_data[name]:
-            server = pipeline["__server__"]
+    def fill_pipeline(name: str, pipeline_: Union[dict, list]):
+        if "__server__" in pipeline_ and name in job_data and "downstream" in job_data[name]:
+            server = pipeline_["__server__"]
             for k, v in job_data[name]["downstream"].items():
-                pipeline[k] = {"__server__": v}
-        pipeline.setdefault("__uuid__", str(uuid.uuid4()))
-        recurse_pipeline(pipeline, fill_pipeline)
+                pipeline_[k] = {"__server__": v}
+        pipeline_.setdefault("__uuid__", str(uuid.uuid4()))
+        recurse_pipeline(pipeline_, fill_pipeline)
 
     fill_pipeline("", pipeline)
     return pipeline
@@ -251,8 +251,8 @@ def recurse_downstream(job_data: dict, load: str, store: str, jobs_cache_file: p
 
     to_fetch_cache = dict()
     if jobs_cache_file.exists():
-        with open(jobs_cache_file, "rb") as f:
-            to_fetch = pickle.load(f)
+        with open(jobs_cache_file, "rb") as fr:
+            to_fetch = pickle.load(fr)
             job_data2 = asyncio.run(collect_job_data(to_fetch, load, store))
             job_data.update(job_data2)
             to_fetch_cache = to_fetch.copy()
@@ -264,45 +264,13 @@ def recurse_downstream(job_data: dict, load: str, store: str, jobs_cache_file: p
         to_fetch = get_to_fetch(job_data2)
         to_fetch_cache.update(to_fetch)
 
-    with open(jobs_cache_file, "wb") as f:
-        pickle.dump(to_fetch_cache, f)
+    with open(jobs_cache_file, "wb") as fw:
+        pickle.dump(to_fetch_cache, fw)
 
 
 @click.group()
 def cli():
     pass
-
-
-@cli.command()
-@click.argument("jobs_file_in")
-@click.option("--verbose", default=False)
-@click.option("--cache", help="Directory to cache data", default=f"{pathlib.Path(__file__).parent.resolve()}/.cache")
-@click.option("--store", help="Directory to store Jenkins JSON data")
-@click.option("--load", help="Directory to load Jenkins JSON data")
-def recurse(jobs_file_in, verbose, cache, store, load):
-    if verbose:
-        do_verbose()
-    if store:
-        os.makedirs(store, exist_ok=True)
-    start_time = time.process_time()
-    with open(jobs_file_in) as file:
-        yaml_data = yaml.safe_load(file)
-    job_data = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
-    hash_ = hash_url(str(pathlib.Path(jobs_file_in).absolute().resolve()))
-    os.makedirs(cache, exist_ok=True)
-    jobs_cache_file = pathlib.Path(cache, hash_)
-    recurse_downstream(job_data, load, store, jobs_cache_file)
-
-    pipeline_dict = collect_jobs_pipeline(yaml_data)
-    pipeline_dict = add_recursive_jobs_pipeline(pipeline_dict, job_data)
-    calculate_status(pipeline_dict, job_data)
-    end_time = time.process_time()
-    print(f"Loaded {len(job_data)} jobs in {end_time - start_time} sec")
-
-    # display_rich_table(pipeline_dict, job_data, load, store)
-    # elements = generate_cyto_elements(pipeline_dict, job_data)
-    # display_cyto(elements)
-    display_dash(pipeline_dict, job_data)
 
 
 @cli.command()
@@ -319,27 +287,30 @@ def main(jobs_file, user_file, recurse, verbose, cache, store, load, auth):
         do_verbose()
     if store:
         os.makedirs(store, exist_ok=True)
-    start_time = time.process_time()
     with open(jobs_file) as file:
         yaml_data = yaml.safe_load(file)
-    job_data = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
-    hash_ = hash_url(str(pathlib.Path(jobs_file).absolute().resolve()))
-    os.makedirs(cache, exist_ok=True)
-    if recurse:
-        jobs_cache_file = pathlib.Path(cache, hash_)
-        recurse_downstream(job_data, load, store, jobs_cache_file)
 
-    pipeline_dict = collect_jobs_pipeline(yaml_data)
-    if recurse:
-        pipeline_dict = add_recursive_jobs_pipeline(pipeline_dict, job_data)
-    calculate_status(pipeline_dict, job_data)
-    end_time = time.process_time()
-    print(f"Loaded {len(job_data)} jobs in {end_time - start_time} sec")
+    def get_job_data() -> tuple[dict, dict]:
+        start_time = time.process_time()
+        job_data_ = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
+        hash_ = hash_url(str(pathlib.Path(jobs_file).absolute().resolve()))
+        os.makedirs(cache, exist_ok=True)
+        if recurse:
+            jobs_cache_file = pathlib.Path(cache, hash_)
+            recurse_downstream(job_data_, load, store, jobs_cache_file)
+
+        pipeline_dict_ = collect_jobs_pipeline(yaml_data)
+        if recurse:
+            pipeline_dict_ = add_recursive_jobs_pipeline(pipeline_dict_, job_data_)
+        calculate_status(pipeline_dict_, job_data_)
+        end_time = time.process_time()
+        print(f"Loaded {len(job_data_)} jobs in {end_time - start_time} sec")
+        return pipeline_dict_, job_data_
 
     # display_rich_table(pipeline_dict, job_data, load, store)
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
-    display_dash(pipeline_dict, job_data)
+    display_dash(get_job_data)
 
 
 if __name__ == "__main__":

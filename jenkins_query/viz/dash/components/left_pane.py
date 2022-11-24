@@ -1,29 +1,37 @@
 from collections import defaultdict
+from dataclasses import dataclass
+from pprint import pprint
 from typing import List, Tuple
 
-import dash_bootstrap_components as dbc
-import dash_extensions as de
-import dash_extensions.javascript as de_js
-from dash import html
-from dash_tabulator import DashTabulator
+import dash_bootstrap_components as dbc  # type: ignore
+import dash_extensions as de  # type: ignore
+import dash_extensions.javascript as de_js  # type: ignore
+from dash import html, Input  # type: ignore
+from dash_tabulator import DashTabulator  # type: ignore
+from .. import components
+from ..partial_callback import PartialCallback
 
 
-def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
-    job_details = []
-    btn_list = []
-    for name, data in pipeline_dict.items():
-        if name.startswith("__") and name.endswith("__"):
-            continue
-        job_children, btn_list_ = add_jobs_to_table(
-            name=name,
-            job_struct=data,
-            job_data=job_data,
-        )
-        job_details += job_children
-        btn_list += btn_list_
-    ns = de_js.Namespace("myNamespace", "tabulator")
-    return (
-        dbc.Col(
+class LeftPane(dbc.Col):
+    @dataclass
+    class Callbacks:
+        refresh: PartialCallback[components.aio.ButtonSplitOption.Output, ...]
+
+    def __init__(self, app, pipeline_dict, job_data, callbacks: Callbacks):
+        job_details = []
+        btn_list = []
+        for name, data in pipeline_dict.items():
+            if name.startswith("__") and name.endswith("__"):
+                continue
+            job_children, btn_list_ = add_jobs_to_table(
+                name=name,
+                job_struct=data,
+                job_data=job_data,
+            )
+            job_details += job_children
+            btn_list += btn_list_
+        ns = de_js.Namespace("myNamespace", "tabulator")
+        super().__init__(
             (
                 html.Header(
                     [
@@ -38,7 +46,17 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
                 ),
                 html.Div(
                     [
-                        dbc.Button("Test", id="btn-test"),
+                        components.aio.ButtonSplitOption(
+                            app,
+                            "Refresh",
+                            [
+                                "Once",
+                                "Every 1 min",
+                                "Every 10 min",
+                            ],
+                            aio_id="btn-refresh",
+                            callback=callbacks.refresh,
+                        ),
                         dbc.Switch(
                             label="Responsive",
                             id="cb-responsive-graph",
@@ -120,7 +138,6 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
                         dataTreeChildIndent=5,
                         layout="fitColumns",
                         responsiveLayout="hide",
-                        rowClick=ns("rowClick"),
                         rowFormatter=ns("rowFormat"),
                     ),
                     theme="bootstrap/tabulator_bootstrap4",
@@ -136,13 +153,11 @@ def generate(pipeline_dict, job_data) -> Tuple[dbc.Col, List[dbc.Button]]:
             lg=5,
             xs=12,
             id="col-left-pane",
-        ),
-        btn_list,
-    )
+        )
 
 
 def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> Tuple[List[dict], List[dbc.Button]]:
-    details = dict(
+    details: dict = dict(
         _children=[],
     )
     status_classname_map = defaultdict(
