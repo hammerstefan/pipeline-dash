@@ -1,12 +1,12 @@
 from typing import Tuple
 
-import dash_bootstrap_components as dbc
-import dash_extensions.javascript as de_js
-import networkx
-from dash import dcc
-from plotly import graph_objects as go
+import dash_bootstrap_components as dbc  # type: ignore
+import dash_extensions.javascript as de_js  # type: ignore
+import networkx  # type: ignore
+from dash import dcc  # type: ignore
+from plotly import graph_objects as go  # type: ignore
 
-from .jobs_pipeline_fig import generate_plot_figure
+from jenkins_query.viz.dash.components.jobs_pipeline_fig import generate_plot_figure
 
 
 def generate(graph: networkx.DiGraph) -> Tuple[dbc.Col, go.Figure]:

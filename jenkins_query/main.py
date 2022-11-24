@@ -17,11 +17,11 @@ from urllib.parse import urlparse, urlsplit
 
 import aiohttp
 import click as click
-import mergedeep
+import mergedeep  # type: ignore
 import yaml
 
-from pipeline_utils import recurse_pipeline
-from viz.dash.viz_dash import display_dash
+from jenkins_query.pipeline_utils import recurse_pipeline
+from jenkins_query.viz.dash.viz_dash import display_dash
 
 verbose = False
 
@@ -43,7 +43,7 @@ async def api(
     session: aiohttp.ClientSession,
     url: str,
     tree: str = "",
-    depth: int = None,
+    depth: Optional[int] = None,
     load_dir: Optional[str] = None,
     store_dir: Optional[str] = None,
 ):

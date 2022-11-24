@@ -1,7 +1,7 @@
 import time
 from typing import List, Tuple
 
-import networkx
+import networkx  # type: ignore
 import networkx as nx
 
 
