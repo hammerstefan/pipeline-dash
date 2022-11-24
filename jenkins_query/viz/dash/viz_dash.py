@@ -8,6 +8,7 @@ import dash_bootstrap_templates  # type: ignore
 from dash import html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_extensions import enrich as de  # type: ignore
+from plotly import graph_objects as go  # type: ignore
 
 import jenkins_query.viz.dash.components.jobs_pipeline_fig
 from jenkins_query.pipeline_utils import find_pipeline
@@ -47,14 +48,15 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
     )
     dash_bootstrap_templates.load_figure_template()
 
-    def callback_refresh(n: components.aio.ButtonSplitOption.Output):
+    def callback_refresh() -> go.Figure:
         # TODO: don't regen the world just to refresh some data from Jenkins
+        print("CALLBACK")
         pipeline_dict_, job_data_ = get_job_data_fn()
         graph_ = generate_nx(pipeline_dict_, job_data_)
         fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
         return fig_
 
-    callback = PartialCallback(output=Output("pipeline-graph", "figure"), inputs=[], function=callback_refresh)
+    callback = PartialCallback(outputs=[Output("pipeline-graph", "figure")], function=callback_refresh)
 
     left_pane = components.LeftPane(
         app, pipeline_dict, job_data, callbacks=components.LeftPane.Callbacks(refresh=callback)

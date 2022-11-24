@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import uuid
 from collections import OrderedDict
 from dataclasses import asdict, dataclass
 from pprint import pprint
-from typing import List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import dash  # type: ignore
 from dash import ALL, html, Input, MATCH, Output, State  # type: ignore
@@ -54,16 +56,16 @@ class ButtonSplitOption(html.Div):
 
     ids = Ids
 
-    CallbackType = PartialCallback[Output, ...]
+    CallbackType = PartialCallback[Callable[[Output], Any]]
 
     def __init__(
         self,
         app,
+        callback: CallbackType | None,
         label: str = "",
         options: Optional[list] = None,
         inital_index: int = 0,
         aio_id: Optional[str] = None,
-        callback: Optional[CallbackType] = None,
     ):
         options = options or []
         aio_id = aio_id or str(uuid.uuid4())
@@ -129,7 +131,7 @@ class ButtonSplitOption(html.Div):
         if callback:
 
             @app.callback(
-                output=callback.output,
+                output=callback.outputs,
                 inputs=dict(
                     data=(Input(self.ids.output(aio_id), "data")),
                     callback_inputs=callback.inputs,

@@ -4,8 +4,8 @@ import uuid
 from statistics import median
 from typing import Dict, List, Optional
 
-import networkx
-from plotly import graph_objects as go
+import networkx  # type: ignore
+from plotly import graph_objects as go  # type: ignore
 
 
 def do_layout(g: networkx.DiGraph) -> int:

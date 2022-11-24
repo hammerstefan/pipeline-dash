@@ -1,12 +1,14 @@
+import collections
 from collections import defaultdict
 from dataclasses import dataclass
 from pprint import pprint
-from typing import List, Tuple
+from typing import Any, Callable, ClassVar, List, Tuple
 
+import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_extensions as de  # type: ignore
 import dash_extensions.javascript as de_js  # type: ignore
-from dash import html, Input  # type: ignore
+from dash import html, Input, dcc, Output  # type: ignore
 from dash_tabulator import DashTabulator  # type: ignore
 from .. import components
 from ..partial_callback import PartialCallback
@@ -15,21 +17,23 @@ from ..partial_callback import PartialCallback
 class LeftPane(dbc.Col):
     @dataclass
     class Callbacks:
-        refresh: PartialCallback[components.aio.ButtonSplitOption.Output, ...]
+        RefreshCallbackType = PartialCallback[Callable[[], Any]]
+        refresh: RefreshCallbackType
 
     def __init__(self, app, pipeline_dict, job_data, callbacks: Callbacks):
         job_details = []
-        btn_list = []
         for name, data in pipeline_dict.items():
             if name.startswith("__") and name.endswith("__"):
                 continue
-            job_children, btn_list_ = add_jobs_to_table(
+            job_details += add_jobs_to_table(
                 name=name,
                 job_struct=data,
                 job_data=job_data,
             )
-            job_details += job_children
-            btn_list += btn_list_
+
+        callback_refresh = self.gen_refresh_callback(callbacks.refresh)
+        self.setup_intvl_refresh_callback(app, callbacks.refresh)
+
         ns = de_js.Namespace("myNamespace", "tabulator")
         super().__init__(
             (
@@ -48,14 +52,18 @@ class LeftPane(dbc.Col):
                     [
                         components.aio.ButtonSplitOption(
                             app,
-                            "Refresh",
-                            [
+                            label="Refresh",
+                            options=[
                                 "Once",
                                 "Every 1 min",
                                 "Every 10 min",
                             ],
                             aio_id="btn-refresh",
-                            callback=callbacks.refresh,
+                            callback=callback_refresh,
+                        ),
+                        dcc.Interval(
+                            id="intvl-refresh",
+                            disabled=True,
                         ),
                         dbc.Switch(
                             label="Responsive",
@@ -155,8 +163,43 @@ class LeftPane(dbc.Col):
             id="col-left-pane",
         )
 
+    @classmethod
+    def gen_refresh_callback(
+        cls, callback: Callbacks.RefreshCallbackType
+    ) -> components.aio.ButtonSplitOption.CallbackType:
+        def callback_refresh_fn(n: components.aio.ButtonSplitOption.Output):
+            time_map = [
+                0,
+                60 * 1000,
+                10 * 60 * 1000,
+            ]
+            interval = time_map[n.index]
+            disabled = False if interval else True
+            return callback.function(), disabled, interval
 
-def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> Tuple[List[dict], List[dbc.Button]]:
+        callback_refresh: components.aio.ButtonSplitOption.CallbackType = PartialCallback(
+            outputs=callback.outputs
+            + [
+                Output("intvl-refresh", "disabled"),
+                Output("intvl-refresh", "interval"),
+            ],
+            inputs=callback.inputs,
+            function=callback_refresh_fn,
+        )
+        return callback_refresh
+
+    @classmethod
+    def setup_intvl_refresh_callback(cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType) -> None:
+        @app.callback(
+            output=callback.outputs,
+            inputs=[Input("intvl-refresh", "n_intervals")],
+            prevent_initial_call=True,
+        )
+        def intvl_refresh_trigger(nintervals):
+            return callback.function()
+
+
+def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> List[dict]:
     details: dict = dict(
         _children=[],
     )
@@ -170,22 +213,8 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
             None: "table-info",
         },
     )
-    btn_diagram_list = []
     if "__server__" in job_struct:
-        btn_diagram_list.append(f"btn-diagram-{job_struct['__uuid__']}")
         fields = job_data[name]
-        btn_diagram_list.append(
-            dbc.Button(
-                html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
-                id=f"btn-diagram-{job_struct['__uuid__']}",
-                outline=True,
-                color="secondary",
-                class_name="m-1",
-                style={
-                    "padding": "1px 2px 1px 2px",
-                },
-            )
-        )
         details.update(
             dict(
                 name=fields["name"],
@@ -195,7 +224,6 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
                 status=fields["status"],
                 url=fields["url"],
                 # html.Span([
-                #     btn_diagram_list[-1],
                 #     dbc.Button(
                 #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
                 #         id={
@@ -216,25 +244,12 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
         # if fields["timestamp"] and datetime.now() - fields["timestamp"] > timedelta(hours=24):
         #     table.rows[-1].style = "dim"
     else:
-        btn_diagram_list.append(
-            dbc.Button(
-                html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
-                id=f"btn-diagram-{job_struct['__uuid__']}",
-                outline=True,
-                color="secondary",
-                class_name="m-1",
-                style={
-                    "padding": "1px 2px 1px 2px",
-                },
-            )
-        )
         details.update(
             dict(
                 name=name,
                 serial=None,
                 status=job_struct.get("__downstream_status__", None),
                 # html.Span([
-                #     btn_diagram_list[-1],
                 #     dbc.Button(
                 #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
                 #         id={
@@ -263,16 +278,15 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
     for next_name in job_struct:
         if next_name.startswith("__") and next_name.endswith("__"):
             continue
-        children, btn_list = add_jobs_to_table(
+        children = add_jobs_to_table(
             name=next_name,
             job_struct=job_struct[next_name],
             job_data=job_data,
             indent=indent + 1,
         )
         details["_children"] += children
-        btn_diagram_list += btn_list
 
     if not details["_children"]:
         details["_children"] = None
 
-    return [details], btn_diagram_list
+    return [details]
