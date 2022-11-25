@@ -1,1 +1,5 @@
 config/user.yaml
+.cookies
+.idea/
+.cache/
+__pycache__
