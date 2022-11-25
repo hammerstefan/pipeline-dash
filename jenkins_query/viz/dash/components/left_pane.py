@@ -1,5 +1,4 @@
 from collections import defaultdict
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, List
 
@@ -114,10 +113,79 @@ class LeftPane(dbc.Col):
                             title="Name",
                             widthGrow=3,
                         ),
-                        dict(title="Serial", field="serial", minWidth=120, widthGrow=0, responsive=3),
+                        dict(
+                            title="Serial",
+                            field="serial",
+                            headerFilter="input",
+                            headerFilterFunc=ns("nameHeaderFilter"),
+                            minWidth=120,
+                            responsive=3,
+                            widthGrow=0,
+                        ),
                         # dict(title="No.", field="build_num"),
                         dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
-                        dict(title="Status", field="status", minWidth=90, widthGrow=1, responsive=2),
+                        dict(
+                            title="Status",
+                            field="status",
+                            headerFilter="select",
+                            headerFilterFunc=ns("statusHeaderFilter"),
+                            headerFilterLiveFilter=False,
+                            headerFilterParams=dict(
+                                values=[
+                                    dict(
+                                        label="Clear Filter",
+                                        value="",
+                                    ),
+                                    dict(
+                                        label="FAILURE",
+                                        value="FAILURE",
+                                        elementAttributes={
+                                            "class": "bg-danger bg-opacity-25",
+                                        },
+                                    ),
+                                    dict(
+                                        label="In Progress",
+                                        value="In Progress",
+                                        elementAttributes={
+                                            "class": "bg-info bg-opacity-25",
+                                        },
+                                    ),
+                                    dict(
+                                        label="NOT RUN",
+                                        value="NOT RUN",
+                                        elementAttributes={
+                                            "class": "bg-dark bg-opacity-25",
+                                        },
+                                    ),
+                                    dict(
+                                        label="SUCCESS",
+                                        value="SUCCESS",
+                                        elementAttributes={
+                                            "class": "bg-success bg-opacity-25",
+                                        },
+                                    ),
+                                    dict(
+                                        label="UNSTABLE",
+                                        value="UNSTABLE",
+                                        elementAttributes={
+                                            "class": "bg-warning bg-opacity-25",
+                                        },
+                                    ),
+                                ],
+                                # values=[
+                                #     "",
+                                #     "FAILURE",
+                                #     "In Progress",
+                                #     "NOT RUN",
+                                #     "SUCCESS",
+                                #     "UNSTABLE",
+                                # ],
+                                multiselect=0,
+                            ),
+                            minWidth=90,
+                            responsive=2,
+                            widthGrow=1,
+                        ),
                         dict(
                             title="Job",
                             field="url",

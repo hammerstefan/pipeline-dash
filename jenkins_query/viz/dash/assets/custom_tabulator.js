@@ -9,7 +9,7 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
                 console.log(r)
                 r.treeToggle();
                 if (r.getData().num_children === 1)
-                    expand(row.getTreeChildren()[0]);
+                    expand(r.getTreeChildren()[0]);
             }
             expand(row);
         },
@@ -25,14 +25,21 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
             document.dispatchEvent(event)
             e.cancelBubble = true
         },
-        nameHeaderFilter: function(headerValue, rowValue, rowData, filterParams) {
+        nameHeaderFilter: function (headerValue, rowValue, rowData, filterParams) {
             re = new RegExp(headerValue, 'i');
             rowMatch = re.test(rowValue);
-            console.log(rowValue);
-            console.log(rowData);
+
             function filt(rd) {
                 return re.test(rd.name) || rd?._children?.some(filt);
             }
+
+            return filt(rowData);
+        },
+        statusHeaderFilter: function (headerValue, rowValue, rowData, filterParams) {
+            function filt(rd) {
+                return rd.status === headerValue || rd?._children?.some(filt);
+            }
+
             return filt(rowData);
         },
     },
