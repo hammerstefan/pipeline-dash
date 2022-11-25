@@ -3,6 +3,7 @@
 # todo: Display side pane with job data when job node is clicked
 # todo: Add more data to jobs table
 # todo: Make navigation of jobs table faster
+# todo: * Expand tree button
 # todo: Migrate to poetry
 # todo: Revisit: Handle graph scaling to viewport size
 # todo: Pipepline depth limit selection

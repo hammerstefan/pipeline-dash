@@ -227,6 +227,7 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
                 timestamp=fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None,
                 status=fields["status"],
                 url=fields["url"],
+                num_children=len([n for n in job_struct if not n.startswith("__") and not n.endswith("__")])
                 # html.Span([
                 #     dbc.Button(
                 #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),

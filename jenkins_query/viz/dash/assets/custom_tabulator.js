@@ -5,7 +5,13 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
             row.height = 20
         },
         rowClick: function (e, row) {
-            row.treeToggle();
+            function expand(r) {
+                console.log(r)
+                r.treeToggle();
+                if (r.getData().num_children === 1)
+                    expand(row.getTreeChildren()[0]);
+            }
+            expand(row);
         },
         diagramIconColFormat: function (cell, formatterParams, onRendered) {
             if (cell.getRow().getData()?._children)
