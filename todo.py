@@ -5,3 +5,4 @@
 # todo: Make navigation of jobs table faster
 # todo: Migrate to poetry
 # todo: Revisit: Handle graph scaling to viewport size
+# todo: Pipepline depth limit selection

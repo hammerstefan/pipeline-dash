@@ -142,11 +142,12 @@ class LeftPane(dbc.Col):
                     data=job_details,
                     options=dict(
                         dataTree=True,
-                        dataTreeFilter=True,
                         dataTreeChildColumnCalcs=True,
                         dataTreeChildIndent=5,
+                        dataTreeFilter=True,
                         layout="fitColumns",
                         responsiveLayout="hide",
+                        rowClick=ns("rowClick"),
                         rowFormatter=ns("rowFormat"),
                     ),
                     theme="bootstrap/tabulator_bootstrap4",
