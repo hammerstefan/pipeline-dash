@@ -1,15 +1,16 @@
-import collections
+from collections import defaultdict
 from collections import defaultdict
 from dataclasses import dataclass
-from pprint import pprint
-from typing import Any, Callable, ClassVar, List, Tuple
+from typing import Any, Callable, List
 
 import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_extensions as de  # type: ignore
 import dash_extensions.javascript as de_js  # type: ignore
-from dash import html, Input, dcc, Output  # type: ignore
+from dash import dcc, html, Input, Output  # type: ignore
+from dash.exceptions import PreventUpdate  # type: ignore
 from dash_tabulator import DashTabulator  # type: ignore
+
 from .. import components
 from ..partial_callback import PartialCallback
 
@@ -17,7 +18,7 @@ from ..partial_callback import PartialCallback
 class LeftPane(dbc.Col):
     @dataclass
     class Callbacks:
-        RefreshCallbackType = PartialCallback[Callable[[], Any]]
+        RefreshCallbackType = PartialCallback[Callable[..., Any]]
         refresh: RefreshCallbackType
 
     def __init__(self, app, pipeline_dict, job_data, callbacks: Callbacks):
@@ -167,7 +168,7 @@ class LeftPane(dbc.Col):
     def gen_refresh_callback(
         cls, callback: Callbacks.RefreshCallbackType
     ) -> components.aio.ButtonSplitOption.CallbackType:
-        def callback_refresh_fn(n: components.aio.ButtonSplitOption.Output):
+        def callback_refresh_fn(n: components.aio.ButtonSplitOption.Output, *args, **kwargs):
             time_map = [
                 0,
                 60 * 1000,
@@ -175,7 +176,7 @@ class LeftPane(dbc.Col):
             ]
             interval = time_map[n.index]
             disabled = False if interval else True
-            return callback.function(), disabled, interval
+            return callback.function(*args, **kwargs), disabled, interval
 
         callback_refresh: components.aio.ButtonSplitOption.CallbackType = PartialCallback(
             outputs=callback.outputs
@@ -192,11 +193,13 @@ class LeftPane(dbc.Col):
     def setup_intvl_refresh_callback(cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType) -> None:
         @app.callback(
             output=callback.outputs,
-            inputs=[Input("intvl-refresh", "n_intervals")],
+            inputs=callback.inputs + [Input("intvl-refresh", "n_intervals")],
             prevent_initial_call=True,
         )
-        def intvl_refresh_trigger(nintervals):
-            return callback.function()
+        def intvl_refresh_trigger(nintervals, *args, **kwargs):
+            if not dash.ctx.triggered_id == "intvl-refresh":
+                raise PreventUpdate()
+            return callback.function(*args, **kwargs)
 
 
 def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> List[dict]:

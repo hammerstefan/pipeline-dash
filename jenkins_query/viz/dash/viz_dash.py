@@ -1,11 +1,10 @@
 import time
 from functools import wraps
-from pprint import pprint
 from typing import Callable
 
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
-from dash import html, Input, Output, State  # type: ignore
+from dash import dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_extensions import enrich as de  # type: ignore
 from plotly import graph_objects as go  # type: ignore
@@ -13,7 +12,6 @@ from plotly import graph_objects as go  # type: ignore
 import jenkins_query.viz.dash.components.jobs_pipeline_fig
 from jenkins_query.pipeline_utils import find_pipeline
 from . import components
-from .components.aio import ButtonSplitOption
 from .network_graph import generate_nx
 from .partial_callback import PartialCallback
 
@@ -48,15 +46,20 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
     )
     dash_bootstrap_templates.load_figure_template()
 
-    def callback_refresh() -> go.Figure:
+    def callback_refresh(figure_root) -> go.Figure:
         # TODO: don't regen the world just to refresh some data from Jenkins
         print("CALLBACK")
         pipeline_dict_, job_data_ = get_job_data_fn()
-        graph_ = generate_nx(pipeline_dict_, job_data_)
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == figure_root)
+        graph_ = generate_nx(sub_dict, job_data_)
         fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
         return fig_
 
-    callback = PartialCallback(outputs=[Output("pipeline-graph", "figure")], function=callback_refresh)
+    callback: components.LeftPane.Callbacks.RefreshCallbackType = PartialCallback(
+        outputs=[Output("pipeline-graph", "figure")],
+        inputs=[Input("store-figure-root", "data")],
+        function=callback_refresh,
+    )
 
     left_pane = components.LeftPane(
         app, pipeline_dict, job_data, callbacks=components.LeftPane.Callbacks(refresh=callback)
@@ -76,6 +79,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
                 ),
                 html.Div(id="hidden-div", hidden=True),
                 html.Div(children=[html.Div(id="input-btn-diagram")]),
+                dcc.Store(id="store-figure-root"),
             ],
             fluid=True,
             id="dbc",
@@ -154,7 +158,10 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
     setup_click_btn_left_pane_expand()
 
     @app.callback(
-        Output("pipeline-graph", "figure"),
+        [
+            Output("pipeline-graph", "figure"),
+            Output("store-figure-root", "data"),
+        ],
         Input("el-diagram-click", "event"),
         prevent_initial_call=True,
     )
@@ -169,7 +176,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
         end_time = time.process_time()
         print(f"Generated network in {end_time - start_time} sec")
         fig = components.jobs_pipeline_fig.generate_plot_figure(graph)
-        return fig
+        return fig, uuid
 
     @app.callback(
         [

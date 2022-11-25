@@ -12,6 +12,7 @@ import dash_bootstrap_components as dbc  # type: ignore
 
 # import dash_extensions.enrich as de
 from dash.dcc import Store  # type: ignore
+from dash.exceptions import PreventUpdate
 
 from jenkins_query.viz.dash.partial_callback import PartialCallback
 
@@ -139,5 +140,7 @@ class ButtonSplitOption(html.Div):
                 prevent_initial_call=True,
             )
             def btn_refresh(data, callback_inputs):
+                if not dash.ctx.triggered_id == self.ids.output(aio_id):
+                    raise PreventUpdate()
                 data = ButtonSplitOption.Output(**data)
                 return callback.function(data, *callback_inputs)
