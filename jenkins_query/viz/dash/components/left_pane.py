@@ -238,6 +238,7 @@ class LeftPane(dbc.Col):
         cls, callback: Callbacks.RefreshCallbackType
     ) -> components.aio.ButtonSplitOption.CallbackType:
         def callback_refresh_fn(n: components.aio.ButtonSplitOption.Output, *args, **kwargs):
+            print(n)
             time_map = [
                 0,
                 60 * 1000,

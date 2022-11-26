@@ -51,6 +51,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
         print("CALLBACK")
         pipeline_dict_, job_data_ = get_job_data_fn()
         sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == figure_root)
+        if sub_dict is None:
+            sub_dict = pipeline_dict
         graph_ = generate_nx(sub_dict, job_data_)
         fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
         return fig_

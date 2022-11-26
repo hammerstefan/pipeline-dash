@@ -22,6 +22,7 @@ class ButtonSplitOption(html.Div):
     class Store:
         options: List
         label: str
+        index: int
 
     @dataclass
     class Output:
@@ -96,6 +97,7 @@ class ButtonSplitOption(html.Div):
                     data=self.Store(
                         options=options,
                         label=label,
+                        index=inital_index,
                     ),
                 ),
                 Store(
@@ -111,9 +113,8 @@ class ButtonSplitOption(html.Div):
 
         @app.callback(
             [
-                dash.dependencies.Output(self.ids.output(MATCH), "data"),
-                dash.dependencies.Output(self.ids.store(MATCH), "data"),
-                dash.dependencies.Output(self.ids.button(MATCH), "children"),
+                dash.Output(self.ids.store(MATCH), "data"),
+                dash.Output(self.ids.button(MATCH), "children"),
             ],
             Input(self.ids.dropdown_item(MATCH, ALL), "n_clicks"),
             State(self.ids.button(MATCH), "children"),
@@ -121,32 +122,33 @@ class ButtonSplitOption(html.Div):
             State(self.ids.output(MATCH), "data"),
             prevent_initial_call=True,
         )
-        def btn_click(nclicks_dd, btn_children, store, output) -> Tuple[Output, Store, str]:
+        def btn_click(nclicks_dd, btn_children, store, output) -> Tuple[Store, str]:
             cid = dash.ctx.triggered_id
             store = ButtonSplitOption.Store(**store)
             output = ButtonSplitOption.Output(**output)
             if cid["subcomponent"] == ButtonSplitOption.ids.dropdown_item(MATCH, ALL)["subcomponent"]:
-                output.index = cid["index"]
-                output.n_clicks += 1
-                btn_children = [f"{store.label} {store.options[output.index]}"]
-            return output, store, btn_children
+                store.index = cid["index"]
+                btn_children = [f"{store.label} {store.options[store.index]}"]
+            return store, btn_children
 
         if callback:
 
             @app.callback(
-                output=callback.outputs,
+                output=callback.outputs + [dash.Output(self.ids.output(aio_id), "data")],
                 inputs=dict(
                     data=(
                         Input(self.ids.button(aio_id), "n_clicks"),
-                        State(self.ids.output(aio_id), "data"),
+                        State(self.ids.store(aio_id), "data"),
                     ),
                     callback_inputs=callback.inputs,
                 ),
                 prevent_initial_call=True,
             )
-            def btn_refresh(nclicks, data, callback_inputs):
+            def btn_refresh(data, callback_inputs) -> Output | tuple[Any, Output]:
                 # todo combine this callback with the main callback
-                if not dash.ctx.triggered_id == self.ids.output(aio_id):
+                if not dash.ctx.triggered_id == self.ids.button(aio_id):
                     raise PreventUpdate()
-                data = ButtonSplitOption.Output(**data)
-                return callback.function(data, *callback_inputs)
+                nclicks = data[0]
+                store = ButtonSplitOption.Store(**data[1])
+                output = ButtonSplitOption.Output(n_clicks=nclicks, index=store.index)
+                return *(callback.function(output, *callback_inputs) if callback else []), output

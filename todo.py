@@ -9,3 +9,5 @@
 # todo: Pipepline depth limit selection
 # todo: fix top level root view
 # todo: fix refresh throwing errors
+# todo: support dark mode
+# todo: move settings to modal
