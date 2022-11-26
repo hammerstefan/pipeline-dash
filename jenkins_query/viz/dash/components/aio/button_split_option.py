@@ -12,7 +12,7 @@ import dash_bootstrap_components as dbc  # type: ignore
 
 # import dash_extensions.enrich as de
 from dash.dcc import Store  # type: ignore
-from dash.exceptions import PreventUpdate
+from dash.exceptions import PreventUpdate  # type: ignore
 
 from jenkins_query.viz.dash.partial_callback import PartialCallback
 
@@ -21,6 +21,7 @@ class ButtonSplitOption(html.Div):
     @dataclass
     class Store:
         options: List
+        label: str
 
     @dataclass
     class Output:
@@ -81,19 +82,21 @@ class ButtonSplitOption(html.Div):
         super().__init__(
             [
                 dbc.Button(
-                    label,
+                    f"{label} {options[inital_index]}",
                     id=self.ids.button(aio_id),
                     class_name="pe-1",
                 ),
                 dbc.DropdownMenu(
                     self.dropdown_items,
-                    label=options[inital_index] if options else None,
                     id=self.ids.dropdown(aio_id),
                     class_name="btn-group",
                 ),
                 Store(
                     id=self.ids.store(aio_id),
-                    data=self.Store(options=options),
+                    data=self.Store(
+                        options=options,
+                        label=label,
+                    ),
                 ),
                 Store(
                     id=self.ids.output(aio_id),
@@ -110,36 +113,39 @@ class ButtonSplitOption(html.Div):
             [
                 dash.dependencies.Output(self.ids.output(MATCH), "data"),
                 dash.dependencies.Output(self.ids.store(MATCH), "data"),
-                dash.dependencies.Output(self.ids.dropdown(MATCH), "label"),
+                dash.dependencies.Output(self.ids.button(MATCH), "children"),
             ],
             Input(self.ids.dropdown_item(MATCH, ALL), "n_clicks"),
-            Input(self.ids.button(MATCH), "n_clicks"),
-            State(self.ids.dropdown(MATCH), "label"),
+            State(self.ids.button(MATCH), "children"),
             State(self.ids.store(MATCH), "data"),
             State(self.ids.output(MATCH), "data"),
             prevent_initial_call=True,
         )
-        def btn_click(nclicks_dd, nclicks_btn, label, store, output) -> Tuple[dict, dict, str]:
+        def btn_click(nclicks_dd, btn_children, store, output) -> Tuple[Output, Store, str]:
             cid = dash.ctx.triggered_id
             store = ButtonSplitOption.Store(**store)
             output = ButtonSplitOption.Output(**output)
             if cid["subcomponent"] == ButtonSplitOption.ids.dropdown_item(MATCH, ALL)["subcomponent"]:
                 output.index = cid["index"]
-                label = store.options[output.index]
-            output.n_clicks = int(output.n_clicks) + 1
-            return asdict(output), asdict(store), label
+                output.n_clicks += 1
+                btn_children = [f"{store.label} {store.options[output.index]}"]
+            return output, store, btn_children
 
         if callback:
 
             @app.callback(
                 output=callback.outputs,
                 inputs=dict(
-                    data=(Input(self.ids.output(aio_id), "data")),
+                    data=(
+                        Input(self.ids.button(aio_id), "n_clicks"),
+                        State(self.ids.output(aio_id), "data"),
+                    ),
                     callback_inputs=callback.inputs,
                 ),
                 prevent_initial_call=True,
             )
-            def btn_refresh(data, callback_inputs):
+            def btn_refresh(nclicks, data, callback_inputs):
+                # todo combine this callback with the main callback
                 if not dash.ctx.triggered_id == self.ids.output(aio_id):
                     raise PreventUpdate()
                 data = ButtonSplitOption.Output(**data)
