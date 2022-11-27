@@ -14,3 +14,7 @@
 # todo: figure out what's causing page refresh on load (some callback needs prevent_initial_call? or filter on input)
 # todo: Add more info to job panel
 # todo: Display job panel from table
+# todo: Define TypedDict for job_data
+# todo: Refactor pipeline_dict to have list of children
+# todo: Define TypedDict for pipeline_dict
+# todo: Take another look at top level callbacks and dependency on id string

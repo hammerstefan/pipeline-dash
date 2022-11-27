@@ -6,7 +6,6 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
         },
         rowClick: function (e, row) {
             function expand(r) {
-                console.log(r)
                 r.treeToggle();
                 if (r.getData().num_children === 1)
                     expand(r.getTreeChildren()[0]);
@@ -15,13 +14,26 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
         },
         diagramIconColFormat: function (cell, formatterParams, onRendered) {
             if (cell.getRow().getData()?._children)
-                return "<i class='bi bi-diagram-2' style='font-size:1.0rem'></i>";
+                return "<i class='bi bi-diagram-2' title='Display Graph' style='font-size:1.0rem'></i>";
         },
         diagramIconCellClick: function (e, cell) {
             if (!cell.getRow().getData()?._children)
                 return
             const uuid = cell.getRow().getData()._uuid
             const event = new CustomEvent("clickDiagramIcon", {detail: uuid})
+            document.dispatchEvent(event)
+            e.cancelBubble = true
+        },
+        infoIconColFormat: function (cell, formatterParams, onRendered) {
+            if (cell.getRow().getData()?.url)
+                return "<i class='bi bi-info-circle' title='Display Job Info' style='font-size:1.0rem'></i>";
+        },
+        infoIconCellClick: function (e, cell) {
+            console.log("infoIconCellClick")
+            if (!cell.getRow().getData()?.url)
+                return
+            const uuid = cell.getRow().getData()._uuid
+            const event = new CustomEvent("clickInfoIcon", {detail: uuid})
             document.dispatchEvent(event)
             e.cancelBubble = true
         },

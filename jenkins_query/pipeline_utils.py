@@ -1,4 +1,8 @@
-from typing import Any, Callable, Union
+from typing import Any, Callable, TypedDict, Union
+
+
+class PipelineDict(TypedDict):
+    pass
 
 
 def recurse_pipeline(pipeline: Union[dict, list], fn: Callable[[str, Union[dict, list], Any], Any], *args, **kwargs):

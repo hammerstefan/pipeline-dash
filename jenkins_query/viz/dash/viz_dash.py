@@ -12,7 +12,7 @@ from plotly import graph_objects as go  # type: ignore
 
 import jenkins_query.viz.dash.components.jobs_pipeline_fig
 from jenkins_query.pipeline_utils import find_pipeline
-from . import components
+from . import components, network_graph
 from .components.job_pane import JobPane
 from .network_graph import generate_nx
 from .partial_callback import PartialCallback
@@ -96,20 +96,6 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
 
     app.layout = layout_container()
 
-    # app.clientside_callback(
-    #     """
-    #     function(clickData) {
-    #         url = clickData?.points[0]?.customdata?.url;
-    #         if(url)
-    #             window.open(url, "_blank");
-    #         return null;
-    #     }
-    #     """,
-    #     Output("hidden-div", "children"),
-    #     Input("pipeline-graph", "clickData"),
-    #     prevent_initial_call=True,
-    # )
-
     @app.callback(
         Output("row-job-pane", "children"),
         Input("pipeline-graph", "clickData"),
@@ -120,7 +106,36 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
         points: list[dict] = click_data.get("points", [])
         if not points:
             raise PreventUpdate()
-        data = points[0].get("customdata", {})
+        customdata: network_graph.NodeCustomData = points[0].get("customdata", {})
+        data = JobPane.Data(
+            name=customdata.get("name", "NO NAME"),
+            serial=customdata.get("serial"),
+            status=customdata.get("status", "Unknown"),
+            url=customdata.get("url"),
+        )
+
+        return [JobPane(data, id="offcanvas-job-pane")]
+
+    @app.callback(
+        Output("row-job-pane", "children"),
+        Input("el-info-click", "event"),
+        prevent_initial_call=True,
+    )
+    def input_job_info_click(e: dict):
+        uuid = e.get("detail")
+        if uuid is None:
+            raise PreventUpdate
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == uuid)
+        if sub_dict is None:
+            raise PreventUpdate()
+        job_name = next(iter(sub_dict.keys()))
+        job_data_ = job_data.get(job_name, {})
+        data = JobPane.Data(
+            name=job_name,
+            serial=job_data_.get("serial"),
+            status=job_data_.get("status", "Unknown"),
+            url=job_data_.get("url"),
+        )
         return [JobPane(data, id="offcanvas-job-pane")]
 
     # app.clientside_callback(

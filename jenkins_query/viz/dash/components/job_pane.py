@@ -1,12 +1,20 @@
 # intended to be the bottom of screen job info pane
-import dash_bootstrap_components as dbc
-from dash import html
+from dataclasses import dataclass
+from typing import Optional
 
-from jenkins_query.viz.dash import network_graph
+import dash_bootstrap_components as dbc  # type: ignore
+from dash import html  # type: ignore
 
 
 class JobPane(dbc.Offcanvas):
-    def __init__(self, data: network_graph.NodeCustomData, **kwargs):
+    @dataclass
+    class Data:
+        name: str
+        serial: Optional[str]
+        status: str
+        url: Optional[str]
+
+    def __init__(self, data: Data, **kwargs):
         children_ = []
         if data:
             children_ = [
@@ -18,28 +26,28 @@ class JobPane(dbc.Offcanvas):
                                     [
                                         html.Div(
                                             [
-                                                html.Label(
-                                                    "Serial:",
-                                                    className="font-weight-bold",
-                                                    style=dict(
-                                                        width="10ch",
-                                                    ),
-                                                ),
-                                                data.get("serial"),
-                                            ]
+    html.Label(
+        "Serial:",
+        className="font-weight-bold",
+        style=dict(
+            width="10ch",
+        ),
+    ),
+    data.serial,
+]
                                         ),
                                         html.Div(
-                                            [
-                                                html.Label(
-                                                    "Status:",
-                                                    className="font-weight-bold",
-                                                    style=dict(
-                                                        width="10ch",
-                                                    ),
-                                                ),
-                                                data.get("status", "").title(),
-                                            ],
-                                        ),
+    [
+        html.Label(
+            "Status:",
+            className="font-weight-bold",
+            style=dict(
+                width="10ch",
+            ),
+        ),
+        data.status.title(),
+    ],
+),
                                         html.Div(
                                             [
                                                 html.Label(
@@ -51,7 +59,7 @@ class JobPane(dbc.Offcanvas):
                                                 ),
                                                 html.A(
                                                     "link",
-                                                    href=data.get("url", ""),
+                                                    href=data.url,
                                                     target="_blank",
                                                 ),
                                             ],
@@ -67,7 +75,7 @@ class JobPane(dbc.Offcanvas):
 
         super().__init__(
             children=children_,
-            title=data.get("name"),
+            title=data.name,
             is_open=True,
             placement="botton",
             class_name="w-100",
