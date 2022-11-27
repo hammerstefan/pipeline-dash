@@ -1,8 +1,17 @@
 import time
-from typing import List, Tuple
+from typing import List, Tuple, TypedDict
 
 import networkx  # type: ignore
 import networkx as nx
+
+
+class NodeCustomData(TypedDict):
+    downstream_status: str
+    layer: int
+    name: str
+    serial: str
+    status: str
+    url: str
 
 
 def generate_nx(job_tree: dict, job_data: dict) -> networkx.DiGraph:
@@ -18,7 +27,7 @@ def generate_nx(job_tree: dict, job_data: dict) -> networkx.DiGraph:
                     status = data["__downstream_status__"]
                 if status is None:
                     status = "In Progress"
-                _nodes[id] = {
+                custom_data: NodeCustomData = {
                     "layer": depth,
                     "status": status,
                     "downstream_status": data["__downstream_status__"],
@@ -28,6 +37,7 @@ def generate_nx(job_tree: dict, job_data: dict) -> networkx.DiGraph:
                     else 0,
                     "name": name,
                 }
+                _nodes[id] = custom_data
                 if parent:
                     _edges += [(parent, id)]
                 new_nodes, new_edges = get_nodes(data, id, depth + 1)
@@ -41,7 +51,7 @@ def generate_nx(job_tree: dict, job_data: dict) -> networkx.DiGraph:
     graph.add_edges_from(edges)
     for n, v in nodes.items():
         layer = v["layer"]
-        del v["layer"]
+        # del v["layer"]
         graph.add_node(n, layer=layer, data=v)
     end_time = time.process_time()
     print(f"Generated network in {end_time - start_time} sec")

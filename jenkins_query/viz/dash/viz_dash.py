@@ -1,5 +1,6 @@
 import time
 from functools import wraps
+from pprint import pprint
 from typing import Callable
 
 import dash_bootstrap_components as dbc  # type: ignore
@@ -12,6 +13,7 @@ from plotly import graph_objects as go  # type: ignore
 import jenkins_query.viz.dash.components.jobs_pipeline_fig
 from jenkins_query.pipeline_utils import find_pipeline
 from . import components
+from .components.job_pane import JobPane
 from .network_graph import generate_nx
 from .partial_callback import PartialCallback
 
@@ -79,8 +81,12 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
                     ],
                     class_name="g-2",
                 ),
+                dbc.Row(
+                    [],
+                    id="row-job-pane",
+                    class_name="g-2",
+                ),
                 html.Div(id="hidden-div", hidden=True),
-                html.Div(children=[html.Div(id="input-btn-diagram")]),
                 dcc.Store(id="store-figure-root"),
             ],
             fluid=True,
@@ -90,19 +96,32 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
 
     app.layout = layout_container()
 
-    app.clientside_callback(
-        """
-        function(clickData) {
-            url = clickData?.points[0]?.customdata?.url;
-            if(url)
-                window.open(url, "_blank");
-            return null;
-        }
-        """,
-        Output("hidden-div", "children"),
+    # app.clientside_callback(
+    #     """
+    #     function(clickData) {
+    #         url = clickData?.points[0]?.customdata?.url;
+    #         if(url)
+    #             window.open(url, "_blank");
+    #         return null;
+    #     }
+    #     """,
+    #     Output("hidden-div", "children"),
+    #     Input("pipeline-graph", "clickData"),
+    #     prevent_initial_call=True,
+    # )
+
+    @app.callback(
+        Output("row-job-pane", "children"),
         Input("pipeline-graph", "clickData"),
         prevent_initial_call=True,
     )
+    def show_job_pane(click_data) -> list:
+        pprint(click_data)
+        points: list[dict] = click_data.get("points", [])
+        if not points:
+            raise PreventUpdate()
+        data = points[0].get("customdata", {})
+        return [JobPane(data, id="offcanvas-job-pane")]
 
     # app.clientside_callback(
     #     """

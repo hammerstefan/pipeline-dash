@@ -11,13 +11,6 @@ from jenkins_query.viz.dash.components.jobs_pipeline_fig import generate_plot_fi
 
 def generate(graph: networkx.DiGraph) -> Tuple[dbc.Col, go.Figure]:
     fig = generate_plot_figure(graph)
-    ns = de_js.Namespace("myNamespace", "dash")
-    drawrect = {
-        "width": 80,
-        "height": 80,
-        "path": "M78,22V79H21V22H78m9-9H12V88H87V13ZM68,46.22H31V54H68ZM53,32H45.22V69H53Z",
-        "transform": "matrix(1 0 0 1 -10 -10)",
-    }
     graph = dcc.Graph(
         id="pipeline-graph",
         figure=fig,
@@ -30,6 +23,7 @@ def generate(graph: networkx.DiGraph) -> Tuple[dbc.Col, go.Figure]:
         style={
             # "min-height": fig.layout.height/4,
             "height": "97vh",
+            # "height": "fit-content(75vh)",
             "display": "block",
             # "margin": "20px",
         },
