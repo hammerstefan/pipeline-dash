@@ -26,28 +26,28 @@ class JobPane(dbc.Offcanvas):
                                     [
                                         html.Div(
                                             [
-    html.Label(
-        "Serial:",
-        className="font-weight-bold",
-        style=dict(
-            width="10ch",
-        ),
-    ),
-    data.serial,
-]
+                                                html.Label(
+                                                    "Serial:",
+                                                    className="font-weight-bold",
+                                                    style=dict(
+                                                        width="10ch",
+                                                    ),
+                                                ),
+                                                data.serial,
+                                            ]
                                         ),
                                         html.Div(
-    [
-        html.Label(
-            "Status:",
-            className="font-weight-bold",
-            style=dict(
-                width="10ch",
-            ),
-        ),
-        data.status.title(),
-    ],
-),
+                                            [
+                                                html.Label(
+                                                    "Status:",
+                                                    className="font-weight-bold",
+                                                    style=dict(
+                                                        width="10ch",
+                                                    ),
+                                                ),
+                                                data.status.title(),
+                                            ],
+                                        ),
                                         html.Div(
                                             [
                                                 html.Label(
