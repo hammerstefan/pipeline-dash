@@ -45,6 +45,7 @@ def add_jobs_to_table(
             prefix = prefix[1:]
         return prefix
 
+    # todo fix this to work with PipelineDict
     if "__server__" in job_struct:
         fields = job_data[name]
         table.add_row(

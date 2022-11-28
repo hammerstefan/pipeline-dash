@@ -11,7 +11,7 @@ from dash_extensions import enrich as de  # type: ignore
 from plotly import graph_objects as go  # type: ignore
 
 import jenkins_query.viz.dash.components.jobs_pipeline_fig
-from jenkins_query.pipeline_utils import find_pipeline
+from jenkins_query.pipeline_utils import find_pipeline, PipelineDict
 from . import components, network_graph
 from .components.job_pane import JobPane
 from .network_graph import generate_nx
@@ -30,7 +30,7 @@ def timeit(f):
     return wrapper
 
 
-def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
+def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
     pipeline_dict, job_data = get_job_data_fn()
     graph = generate_nx(pipeline_dict, job_data)
     app = de.DashProxy(
@@ -52,7 +52,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
         # TODO: don't regen the world just to refresh some data from Jenkins
         print("CALLBACK")
         pipeline_dict_, job_data_ = get_job_data_fn()
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == figure_root)
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == figure_root)
         if sub_dict is None:
             sub_dict = pipeline_dict
         graph_ = generate_nx(sub_dict, job_data_)
@@ -125,10 +125,10 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
         uuid = e.get("detail")
         if uuid is None:
             raise PreventUpdate
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == uuid)
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == uuid)
         if sub_dict is None:
             raise PreventUpdate()
-        job_name = next(iter(sub_dict.keys()))
+        job_name = sub_dict["name"]
         job_data_ = job_data.get(job_name, {})
         data = JobPane.Data(
             name=job_name,
@@ -207,7 +207,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[dict, dict]]):
             raise PreventUpdate
         nonlocal fig
         start_time = time.process_time()
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("__uuid__", "") == uuid)
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == uuid)
         graph = generate_nx(sub_dict, job_data)
         end_time = time.process_time()
         print(f"Generated network in {end_time - start_time} sec")

@@ -10,9 +10,8 @@ import os
 import pathlib
 import pickle
 import time
-import uuid
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import List, Optional
 from urllib.parse import urlparse, urlsplit
 
 import aiohttp
@@ -20,7 +19,13 @@ import click as click
 import mergedeep  # type: ignore
 import yaml
 
-from jenkins_query.pipeline_utils import recurse_pipeline
+from jenkins_query.pipeline_utils import (
+    add_recursive_jobs_pipeline,
+    collect_jobs_dict,
+    collect_jobs_pipeline,
+    PipelineDict,
+    recurse_pipeline,
+)
 from jenkins_query.viz.dash.viz_dash import display_dash
 
 verbose = False
@@ -82,49 +87,6 @@ def do_verbose():
     requests_log.propagate = True
 
 
-def collect_jobs_dict(yaml_data: dict) -> dict:
-    def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
-        recurse_pipeline(pipeline, fill_pipeline, server, out_struct)
-        if not name.startswith("."):
-            out_struct[name] = server
-
-    struct = collections.OrderedDict()
-    for server, data in yaml_data["servers"].items():
-        for k in data["pipelines"]:
-            if type(data["pipelines"]) is dict:
-                fill_pipeline(k, data["pipelines"][k], server, struct)
-            else:
-                fill_pipeline(k, [], server, struct)
-    return struct
-
-
-def collect_jobs_pipeline(yaml_data: dict) -> dict:
-    def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
-        p = {}
-        recurse = pipeline["recurse"] if "recurse" in pipeline else False
-        recurse_pipeline(pipeline, fill_pipeline, server, p)
-        if name and not name.startswith("."):
-            p["__server__"] = server
-            if recurse:
-                p["__recurse__"] = recurse
-        else:
-            name = name[1:]
-        p["__uuid__"] = str(uuid.uuid4())
-        out_struct[name] = p
-
-    struct = collections.OrderedDict()
-    for server, data in yaml_data["servers"].items():
-        tmp = {}
-        for k in data["pipelines"]:
-            if type(data["pipelines"]) is dict:
-                fill_pipeline(k, data["pipelines"][k], server, tmp)
-            else:
-                fill_pipeline(k, [], server, tmp)
-        mergedeep.merge(struct, tmp, strategy=mergedeep.Strategy.TYPESAFE_ADDITIVE)
-    struct["__uuid__"] = str(uuid.uuid4())
-    return struct
-
-
 async def get_job_data(session, server, job, load_dir, store_dir):
     server_url = urlparse(server)
     r = await api(
@@ -153,7 +115,7 @@ async def get_job_data(session, server, job, load_dir, store_dir):
 
     r = await api(
         session,
-        url.geturl(),
+        url.geturl().decode(),
         tree="id,result,timestamp,actions[parameters[name,value]]",
         load_dir=load_dir,
         store_dir=store_dir,
@@ -185,13 +147,13 @@ async def collect_job_data(pipeline_jobs: dict, load_dir, store_dir) -> dict:
     return dict(zip(pipeline_jobs.keys(), result))
 
 
-def calculate_status(pipeline: dict, job_data: dict):
-    def recursive_calculate_status(name: str, p: dict, serial=None) -> List[str]:
+def calculate_status(pipeline: PipelineDict, job_data: dict):
+    def recursive_calculate_status(name: str, p: PipelineDict, serial=None) -> List[str]:
         if serial is None:
             serial = job_data.get(name, dict()).get("serial", None)
         statuses = recurse_pipeline(p, recursive_calculate_status, serial)
         old_serial = False
-        if "__server__" in p:
+        if "server" in p:
             if (
                 serial is not None
                 and job_data[name].get("serial", "0") is not None
@@ -201,7 +163,7 @@ def calculate_status(pipeline: dict, job_data: dict):
                 old_serial = True
             else:
                 status = [job_data[name]["status"]]
-            p["__status__"] = status[0]
+            p["status"] = status[0]
             if statuses is None:
                 statuses = []
             statuses.append(status)
@@ -210,34 +172,21 @@ def calculate_status(pipeline: dict, job_data: dict):
         if statuses:
             counter = collections.Counter(statuses)
             if old_serial:
-                p["__downstream_status__"] = "NOT RUN"
+                p["downstream_status"] = "NOT RUN"
             elif counter["FAILURE"]:
-                p["__downstream_status__"] = "FAILURE"
+                p["downstream_status"] = "FAILURE"
             elif counter["UNSTABLE"]:
-                p["__downstream_status__"] = "UNSTABLE"
+                p["downstream_status"] = "UNSTABLE"
             elif counter["In Progress"] or counter[None]:
-                p["__downstream_status__"] = "In Progress"
+                p["downstream_status"] = "In Progress"
             elif counter["SUCCESS"]:
-                p["__downstream_status__"] = "SUCCESS"
+                p["downstream_status"] = "SUCCESS"
             else:
-                p["__downstream_status__"] = "NOT RUN"
+                p["downstream_status"] = "NOT RUN"
 
         return statuses
 
     s = recursive_calculate_status("", pipeline)
-
-
-def add_recursive_jobs_pipeline(pipeline: dict, job_data: dict) -> dict:
-    def fill_pipeline(name: str, pipeline_: Union[dict, list]):
-        if "__server__" in pipeline_ and name in job_data and "downstream" in job_data[name]:
-            server = pipeline_["__server__"]
-            for k, v in job_data[name]["downstream"].items():
-                pipeline_[k] = {"__server__": v}
-        pipeline_.setdefault("__uuid__", str(uuid.uuid4()))
-        recurse_pipeline(pipeline_, fill_pipeline)
-
-    fill_pipeline("", pipeline)
-    return pipeline
 
 
 def recurse_downstream(job_data: dict, load: str, store: str, jobs_cache_file: pathlib.Path):
@@ -290,7 +239,7 @@ def main(jobs_file, user_file, recurse, verbose, cache, store, load, auth):
     with open(jobs_file) as file:
         yaml_data = yaml.safe_load(file)
 
-    def get_job_data() -> tuple[dict, dict]:
+    def get_job_data_() -> tuple[PipelineDict, dict]:
         start_time = time.process_time()
         job_data_ = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
         hash_ = hash_url(str(pathlib.Path(jobs_file).absolute().resolve()))
@@ -310,7 +259,7 @@ def main(jobs_file, user_file, recurse, verbose, cache, store, load, auth):
     # display_rich_table(pipeline_dict, job_data, load, store)
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
-    display_dash(get_job_data)
+    display_dash(get_job_data_)
 
 
 if __name__ == "__main__":

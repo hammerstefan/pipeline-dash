@@ -5,6 +5,7 @@ from dash import Dash, html
 
 
 def generate_cyto_elements(job_tree: dict, job_data: dict) -> List[dict]:
+    # todo fix this to work with PipelineDict
     def get_nodes(d: dict, parent="") -> List[dict]:
         _nodes = []
         _edges = []

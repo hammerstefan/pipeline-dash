@@ -136,6 +136,8 @@ def get_node_labels(graph, node_text_dict):
             yanchor="top",
             xanchor="left",
             textangle=25,
+            bgcolor="white",
+            opacity=0.8,
         )
         for n in graph.nodes()
     ]

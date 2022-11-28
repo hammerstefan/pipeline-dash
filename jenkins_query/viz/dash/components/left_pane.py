@@ -10,6 +10,7 @@ from dash import dcc, html, Input, Output  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_tabulator import DashTabulator  # type: ignore
 
+from jenkins_query.pipeline_utils import PipelineDict
 from .. import components
 from ..partial_callback import PartialCallback
 
@@ -20,11 +21,9 @@ class LeftPane(dbc.Col):
         RefreshCallbackType = PartialCallback[Callable[..., Any]]
         refresh: RefreshCallbackType
 
-    def __init__(self, app, pipeline_dict, job_data, callbacks: Callbacks):
+    def __init__(self, app, pipeline_dict: PipelineDict, job_data: dict, callbacks: Callbacks):
         job_details = []
-        for name, data in pipeline_dict.items():
-            if name.startswith("__") and name.endswith("__"):
-                continue
+        for name, data in pipeline_dict["children"].items():
             job_details += add_jobs_to_table(
                 name=name,
                 job_struct=data,
@@ -79,7 +78,7 @@ class LeftPane(dbc.Col):
                             html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
                             id={
                                 "type": "btn-diagram",
-                                "index": pipeline_dict["__uuid__"],
+                                "index": pipeline_dict["uuid"],
                             },
                             outline=True,
                             color="secondary",
@@ -90,7 +89,7 @@ class LeftPane(dbc.Col):
                         ),
                         dbc.Button(
                             html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                            id={"type": "btn-expand", "index": pipeline_dict["__uuid__"]},
+                            id={"type": "btn-expand", "index": pipeline_dict["uuid"]},
                             outline=True,
                             color="secondary",
                             class_name="m-1",
@@ -292,7 +291,7 @@ class LeftPane(dbc.Col):
             return callback.function(*args, **kwargs)
 
 
-def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> List[dict]:
+def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, indent=1) -> List[dict]:
     details: dict = dict(
         _children=[],
     )
@@ -306,7 +305,7 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
             None: "table-info",
         },
     )
-    if "__server__" in job_struct:
+    if "server" in job_struct:
         fields = job_data[name]
         details.update(
             dict(
@@ -316,7 +315,7 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
                 timestamp=fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None,
                 status=fields["status"],
                 url=fields["url"],
-                num_children=len([n for n in job_struct if not n.startswith("__") and not n.endswith("__")])
+                num_children=len(job_struct["children"])
                 # html.Span([
                 #     dbc.Button(
                 #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
@@ -342,7 +341,7 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
             dict(
                 name=name,
                 serial=None,
-                status=job_struct.get("__downstream_status__", None),
+                status=job_struct.get("downstream_status", None),
                 # html.Span([
                 #     dbc.Button(
                 #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
@@ -364,17 +363,15 @@ def add_jobs_to_table(name: str, job_struct: dict, job_data: dict, indent=1) -> 
         )
     details.update(
         dict(
-            _class=status_classname_map[job_struct.get("__downstream_status__", None)],
-            _uuid=job_struct["__uuid__"],
+            _class=status_classname_map[job_struct.get("downstream_status", None)],
+            _uuid=job_struct["uuid"],
         )
     )
 
-    for next_name in job_struct:
-        if next_name.startswith("__") and next_name.endswith("__"):
-            continue
+    for next_name in job_struct["children"]:
         children = add_jobs_to_table(
             name=next_name,
-            job_struct=job_struct[next_name],
+            job_struct=job_struct["children"][next_name],
             job_data=job_data,
             indent=indent + 1,
         )
