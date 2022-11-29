@@ -11,10 +11,14 @@
 # todo: support dark mode
 # todo: move settings to modal
 # todo: take another look at improving the custom-callback syntax for components. @decorator somehow?
+# todo: Take another look at top level callbacks and dependency on id string
 # todo: figure out what's causing page refresh on load (some callback needs prevent_initial_call? or filter on input)
 # todo: Add more info to job panel
-# todo: Display job panel from table
+#   * timestamp
+#   * sub jobs
+#   * history
+#   * downstream
 # todo: Define TypedDict for job_data
-# todo: Refactor pipeline_dict to have list of children
-# todo: Define TypedDict for pipeline_dict
-# todo: Take another look at top level callbacks and dependency on id string
+# todo: Add refresh info:
+#   * currently perioudly refreshing
+#   * last refresh time

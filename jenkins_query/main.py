@@ -11,7 +11,7 @@ import pathlib
 import pickle
 import time
 from datetime import datetime
-from typing import List, Optional
+from typing import cast, List, Optional
 from urllib.parse import urlparse, urlsplit
 
 import aiohttp
@@ -115,7 +115,7 @@ async def get_job_data(session, server, job, load_dir, store_dir):
 
     r = await api(
         session,
-        url.geturl().decode(),
+        cast(str, url.geturl()),
         tree="id,result,timestamp,actions[parameters[name,value]]",
         load_dir=load_dir,
         store_dir=store_dir,
