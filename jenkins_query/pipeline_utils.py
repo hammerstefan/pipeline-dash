@@ -22,6 +22,11 @@ class PipelineDict(TypedDict):
 
 P = ParamSpec("P")
 
+special_keys = [
+    "label",
+    "recurse",
+]
+
 
 def recurse_yaml(
     pipeline: list | dict, fn: Callable[Concatenate[str, dict | list, P], Any], *args: P.args, **kwargs: P.kwargs
@@ -73,9 +78,11 @@ def find_pipeline(pipeline: PipelineDict, select_fn: Callable[[str, PipelineDict
 
 
 def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
-    def fill_pipeline(name: str, pipeline: Union[dict, list], server: str) -> dict[str, PipelineDict]:
+    def fill_pipeline(name: str, pipeline: Union[dict, list], server: str) -> dict[str, PipelineDict] | None:
         server_ = None
         recurse_ = False
+        if name in special_keys:
+            return None
         if name and not name.startswith("."):
             server_ = server
             recurse_ = pipeline["recurse"] if isinstance(pipeline, dict) and "recurse" in pipeline else False
@@ -131,6 +138,8 @@ def add_recursive_jobs_pipeline(pipeline: PipelineDict, job_data: dict) -> Pipel
 
 def collect_jobs_dict(yaml_data: dict) -> dict:
     def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
+        if name in special_keys:
+            return None
         recurse_yaml(pipeline, fill_pipeline, server, out_struct)
         if not name.startswith("."):
             out_struct[name] = server

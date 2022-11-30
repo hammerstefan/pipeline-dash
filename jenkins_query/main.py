@@ -68,6 +68,7 @@ async def api(
                 return json.load(f)
     async with session.get(api_url) as req:
         d = await req.text()
+    # todo handle error
     json_data = json.loads(d)
     if store_dir:
         possible_path = os.path.join(store_dir, file_name)

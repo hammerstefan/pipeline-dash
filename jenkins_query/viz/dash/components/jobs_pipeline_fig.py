@@ -12,7 +12,7 @@ def do_layout(g: networkx.DiGraph) -> int:
     def recurse(n, g, depth, y):
         first = True
         next_y = y
-        for s in g.successors(n):
+        for s in reversed(list(g.successors(n))):
             if first:
                 first = False
             else:
@@ -25,7 +25,7 @@ def do_layout(g: networkx.DiGraph) -> int:
 
     first_nodes = [n for n in g.nodes() if g.nodes[n]["layer"] == 0]
     ny = 0
-    for n in first_nodes:
+    for n in reversed(first_nodes):
         ny = recurse(n, g, 0, ny)
         ny += 2
 

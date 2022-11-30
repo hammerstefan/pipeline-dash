@@ -22,3 +22,4 @@
 # todo: Add refresh info:
 #   * currently perioudly refreshing
 #   * last refresh time
+# todo: refresh interval button is awkward (select interval and then hit button is not intuitive)

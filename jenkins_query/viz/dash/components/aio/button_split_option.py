@@ -90,7 +90,7 @@ class ButtonSplitOption(html.Div):
                 dbc.DropdownMenu(
                     self.dropdown_items,
                     id=self.ids.dropdown(aio_id),
-                    class_name="btn-group",
+                    class_name="btn-group me-1",
                 ),
                 Store(
                     id=self.ids.store(aio_id),

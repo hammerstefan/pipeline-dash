@@ -1,18 +1,20 @@
+import datetime
 from collections import defaultdict
 from dataclasses import dataclass
+from pprint import pprint
 from typing import Any, Callable, List
 
 import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_extensions as de  # type: ignore
 import dash_extensions.javascript as de_js  # type: ignore
-from dash import dcc, html, Input, Output  # type: ignore
+from dash import dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_tabulator import DashTabulator  # type: ignore
 
 from jenkins_query.pipeline_utils import PipelineDict
-from .. import components
-from ..partial_callback import PartialCallback
+from jenkins_query.viz.dash import components
+from jenkins_query.viz.dash.partial_callback import PartialCallback
 
 
 class LeftPane(dbc.Col):
@@ -30,7 +32,7 @@ class LeftPane(dbc.Col):
                 job_data=job_data,
             )
 
-        callback_refresh = self.gen_refresh_callback(callbacks.refresh)
+        self.setup_refresh_callbacks(app, callbacks.refresh)
         self.setup_intvl_refresh_callback(app, callbacks.refresh)
 
         ns = de_js.Namespace("myNamespace", "tabulator")
@@ -47,23 +49,38 @@ class LeftPane(dbc.Col):
                     ],
                     className="d-flex justify-content-between align-items-center",
                 ),
+                dbc.InputGroup(
+                    [
+                        dbc.InputGroupText(dbc.Label("Refresh every", align="end")),
+                        dbc.Select(
+                            id="sel-refresh-interval",
+                            options=[
+                                dict(label="1 min", value=60 * 1000),
+                                dict(label="5 min", value=5 * 60 * 1000),
+                                dict(label="10 mins", value=10 * 60 * 1000),
+                            ],
+                            value=5 * 60 * 1000,
+                            persistence=True,
+                        ),
+                        dbc.InputGroupText(
+                            dbc.Switch(id="cb-enable-refresh", persistence=True),
+                        ),
+                        dbc.Button(
+                            html.I(className="bi-arrow-clockwise"),
+                            id="btn-refresh-now",
+                            className="btn btn-primary",
+                        ),
+                    ],
+                ),
                 html.Div(
                     [
-                        components.aio.ButtonSplitOption(
-                            app,
-                            label="Refresh",
-                            options=[
-                                "Once",
-                                "Every 1 min",
-                                "Every 10 min",
-                            ],
-                            aio_id="btn-refresh",
-                            callback=callback_refresh,
-                        ),
-                        dcc.Interval(
-                            id="intvl-refresh",
-                            disabled=True,
-                        ),
+                        html.Label(f"Last refresh:", className="me-1"),
+                        html.Label(datetime.datetime.now().time().isoformat("seconds"), id="lbl-last-update"),
+                        dcc.Interval(id="intvl-refresh", disabled=True),
+                    ],
+                ),
+                html.Div(
+                    [
                         dbc.Switch(
                             label="Responsive",
                             id="cb-responsive-graph",
@@ -181,7 +198,7 @@ class LeftPane(dbc.Col):
                                 # ],
                                 multiselect=0,
                             ),
-                            minWidth=90,
+                            minWidth=100,
                             responsive=2,
                             widthGrow=1,
                         ),
@@ -253,42 +270,42 @@ class LeftPane(dbc.Col):
         )
 
     @classmethod
-    def gen_refresh_callback(
-        cls, callback: Callbacks.RefreshCallbackType
-    ) -> components.aio.ButtonSplitOption.CallbackType:
-        def callback_refresh_fn(n: components.aio.ButtonSplitOption.Output, *args, **kwargs):
-            print(n)
-            time_map = [
-                0,
-                60 * 1000,
-                10 * 60 * 1000,
-            ]
-            interval = time_map[n.index]
-            disabled = False if interval else True
-            return callback.function(*args, **kwargs), disabled, interval
-
-        callback_refresh: components.aio.ButtonSplitOption.CallbackType = PartialCallback(
-            outputs=callback.outputs
-            + [
-                Output("intvl-refresh", "disabled"),
-                Output("intvl-refresh", "interval"),
-            ],
-            inputs=callback.inputs,
-            function=callback_refresh_fn,
+    def setup_refresh_callbacks(cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType) -> None:
+        @app.callback(
+            Output("intvl-refresh", "disabled"),
+            Output("intvl-refresh", "interval"),
+            Input("cb-enable-refresh", "value"),
+            Input("sel-refresh-interval", "value"),
         )
-        return callback_refresh
+        def enable_refresh(cb_value: bool, interval: int) -> tuple[bool, int]:
+            return not cb_value, int(interval)
+
+        @app.callback(
+            *callback.outputs,
+            Output("lbl-last-update", "children"),
+            Input("btn-refresh-now", "n_clicks"),
+            *callback.inputs,
+            prevent_initial_call=True,
+        )
+        def refresh_now(n_clicks: int, *args, **kwargs) -> Any:
+            current_time = datetime.datetime.now().time().isoformat("seconds")
+            return callback.function(*args, **kwargs), current_time
 
     @classmethod
     def setup_intvl_refresh_callback(cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType) -> None:
         @app.callback(
-            output=callback.outputs,
+            output=callback.outputs
+            + [
+                Output("lbl-last-update", "children"),
+            ],
             inputs=callback.inputs + [Input("intvl-refresh", "n_intervals")],
             prevent_initial_call=True,
         )
         def intvl_refresh_trigger(nintervals, *args, **kwargs):
             if not dash.ctx.triggered_id == "intvl-refresh":
                 raise PreventUpdate()
-            return callback.function(*args, **kwargs)
+            current_time = datetime.datetime.now().time().isoformat("seconds")
+            return callback.function(*args, **kwargs), current_time
 
 
 def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, indent=1) -> List[dict]:
