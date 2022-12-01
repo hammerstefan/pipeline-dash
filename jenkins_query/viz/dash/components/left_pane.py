@@ -34,8 +34,138 @@ class LeftPane(dbc.Col):
 
         self.setup_refresh_callbacks(app, callbacks.refresh)
         self.setup_intvl_refresh_callback(app, callbacks.refresh)
+        # self.setup_expand_all_callback(app)
 
         ns = de_js.Namespace("myNamespace", "tabulator")
+
+        def generate_jobs_table(expand_all_: bool = False) -> DashTabulator:
+            return DashTabulator(
+                id="jobs_table",
+                columns=[
+                    dict(
+                        field="name",
+                        headerFilter="input",
+                        headerFilterFunc=ns("nameHeaderFilter"),
+                        minWidth=200,
+                        responsive=0,
+                        title="Name",
+                        widthGrow=3,
+                    ),
+                    dict(
+                        title="Serial",
+                        field="serial",
+                        headerFilter="input",
+                        headerFilterFunc=ns("nameHeaderFilter"),
+                        minWidth=120,
+                        responsive=3,
+                        widthGrow=0,
+                    ),
+                    dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
+                    dict(
+                        title="Status",
+                        field="status",
+                        headerFilter="select",
+                        headerFilterFunc=ns("statusHeaderFilter"),
+                        headerFilterLiveFilter=False,
+                        headerFilterParams=dict(
+                            values=[
+                                dict(
+                                    label="Clear Filter",
+                                    value="",
+                                ),
+                                dict(
+                                    label="FAILURE",
+                                    value="FAILURE",
+                                    elementAttributes={
+                                        "class": "bg-danger bg-opacity-25",
+                                    },
+                                ),
+                                dict(
+                                    label="In Progress",
+                                    value="In Progress",
+                                    elementAttributes={
+                                        "class": "bg-info bg-opacity-25",
+                                    },
+                                ),
+                                dict(
+                                    label="NOT RUN",
+                                    value="NOT RUN",
+                                    elementAttributes={
+                                        "class": "bg-dark bg-opacity-25",
+                                    },
+                                ),
+                                dict(
+                                    label="SUCCESS",
+                                    value="SUCCESS",
+                                    elementAttributes={
+                                        "class": "bg-success bg-opacity-25",
+                                    },
+                                ),
+                                dict(
+                                    label="UNSTABLE",
+                                    value="UNSTABLE",
+                                    elementAttributes={
+                                        "class": "bg-warning bg-opacity-25",
+                                    },
+                                ),
+                            ],
+                            multiselect=0,
+                        ),
+                        minWidth=100,
+                        responsive=2,
+                        widthGrow=1,
+                    ),
+                    dict(
+                        title="Job",
+                        field="url",
+                        formatter="link",
+                        formatterParams=dict(
+                            labelField="build_num",
+                            target="_blank",
+                        ),
+                        width=65,
+                        widthGrow=0,
+                    ),
+                    dict(
+                        cellClick=ns("infoIconCellClick"),
+                        cssClass="table-sm",
+                        formatter=ns("infoIconColFormat"),
+                        headerSort=False,
+                        hozAlign="center",
+                        resizable=False,
+                        variableHeight=False,
+                        width="40",
+                        widthGrow=0,
+                        widthShrink=0,
+                    ),
+                    dict(
+                        cellClick=ns("diagramIconCellClick"),
+                        cssClass="table-sm",
+                        formatter=ns("diagramIconColFormat"),
+                        headerSort=False,
+                        hozAlign="center",
+                        resizable=False,
+                        variableHeight=False,
+                        width="40",
+                        widthGrow=0,
+                        widthShrink=0,
+                    ),
+                ],
+                data=job_details,
+                options=dict(
+                    dataTree=True,
+                    dataTreeChildColumnCalcs=True,
+                    dataTreeChildIndent=5,
+                    dataTreeFilter=True,
+                    dataTreeStartExpanded=expand_all_,
+                    layout="fitColumns",
+                    responsiveLayout="hide",
+                    rowClick=ns("rowClick"),
+                    rowFormatter=ns("rowFormat"),
+                ),
+                theme="bootstrap/tabulator_bootstrap4",
+            )
+
         super().__init__(
             (
                 html.Header(
@@ -106,7 +236,7 @@ class LeftPane(dbc.Col):
                         ),
                         dbc.Button(
                             html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                            id={"type": "btn-expand", "index": pipeline_dict["uuid"]},
+                            id="btn-expand-all",
                             outline=True,
                             color="secondary",
                             class_name="m-1",
@@ -114,142 +244,17 @@ class LeftPane(dbc.Col):
                                 "padding": "1px 2px 1px 2px",
                             },
                         ),
+                        dcc.Interval(
+                            id="intvl-expand-all",
+                            interval=10,
+                            disabled=True,
+                        ),
                     ]
                 ),
                 # dbc.ListGroup(list(dbc.ListGroupItem(p) for p in job_details)),
-                DashTabulator(
-                    id="jobs_table",
-                    columns=[
-                        dict(
-                            field="name",
-                            headerFilter="input",
-                            headerFilterFunc=ns("nameHeaderFilter"),
-                            minWidth=200,
-                            responsive=0,
-                            title="Name",
-                            widthGrow=3,
-                        ),
-                        dict(
-                            title="Serial",
-                            field="serial",
-                            headerFilter="input",
-                            headerFilterFunc=ns("nameHeaderFilter"),
-                            minWidth=120,
-                            responsive=3,
-                            widthGrow=0,
-                        ),
-                        # dict(title="No.", field="build_num"),
-                        dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
-                        dict(
-                            title="Status",
-                            field="status",
-                            headerFilter="select",
-                            headerFilterFunc=ns("statusHeaderFilter"),
-                            headerFilterLiveFilter=False,
-                            headerFilterParams=dict(
-                                values=[
-                                    dict(
-                                        label="Clear Filter",
-                                        value="",
-                                    ),
-                                    dict(
-                                        label="FAILURE",
-                                        value="FAILURE",
-                                        elementAttributes={
-                                            "class": "bg-danger bg-opacity-25",
-                                        },
-                                    ),
-                                    dict(
-                                        label="In Progress",
-                                        value="In Progress",
-                                        elementAttributes={
-                                            "class": "bg-info bg-opacity-25",
-                                        },
-                                    ),
-                                    dict(
-                                        label="NOT RUN",
-                                        value="NOT RUN",
-                                        elementAttributes={
-                                            "class": "bg-dark bg-opacity-25",
-                                        },
-                                    ),
-                                    dict(
-                                        label="SUCCESS",
-                                        value="SUCCESS",
-                                        elementAttributes={
-                                            "class": "bg-success bg-opacity-25",
-                                        },
-                                    ),
-                                    dict(
-                                        label="UNSTABLE",
-                                        value="UNSTABLE",
-                                        elementAttributes={
-                                            "class": "bg-warning bg-opacity-25",
-                                        },
-                                    ),
-                                ],
-                                # values=[
-                                #     "",
-                                #     "FAILURE",
-                                #     "In Progress",
-                                #     "NOT RUN",
-                                #     "SUCCESS",
-                                #     "UNSTABLE",
-                                # ],
-                                multiselect=0,
-                            ),
-                            minWidth=100,
-                            responsive=2,
-                            widthGrow=1,
-                        ),
-                        dict(
-                            title="Job",
-                            field="url",
-                            formatter="link",
-                            formatterParams=dict(
-                                labelField="build_num",
-                                target="_blank",
-                            ),
-                            width=65,
-                            widthGrow=0,
-                        ),
-                        dict(
-                            cellClick=ns("infoIconCellClick"),
-                            cssClass="table-sm",
-                            formatter=ns("infoIconColFormat"),
-                            headerSort=False,
-                            hozAlign="center",
-                            resizable=False,
-                            variableHeight=False,
-                            width="40",
-                            widthGrow=0,
-                            widthShrink=0,
-                        ),
-                        dict(
-                            cellClick=ns("diagramIconCellClick"),
-                            cssClass="table-sm",
-                            formatter=ns("diagramIconColFormat"),
-                            headerSort=False,
-                            hozAlign="center",
-                            resizable=False,
-                            variableHeight=False,
-                            width="40",
-                            widthGrow=0,
-                            widthShrink=0,
-                        ),
-                    ],
-                    data=job_details,
-                    options=dict(
-                        dataTree=True,
-                        dataTreeChildColumnCalcs=True,
-                        dataTreeChildIndent=5,
-                        dataTreeFilter=True,
-                        layout="fitColumns",
-                        responsiveLayout="hide",
-                        rowClick=ns("rowClick"),
-                        rowFormatter=ns("rowFormat"),
-                    ),
-                    theme="bootstrap/tabulator_bootstrap4",
+                html.Div(
+                    generate_jobs_table(False),
+                    id="div-jobs-table",
                 ),
                 de.EventListener(
                     id="el-diagram-click",
@@ -268,6 +273,33 @@ class LeftPane(dbc.Col):
             xs=12,
             id="col-left-pane",
         )
+
+        def setup_expand_all_callbacks():
+            expanded = False
+
+            @app.callback(
+                Output("div-jobs-table", "children"),
+                Output("intvl-expand-all", "max_intervals"),
+                Output("intvl-expand-all", "disabled"),
+                Input("btn-expand-all", "n_clicks"),
+                prevent_initial_call=True,
+            )
+            def expand_all(n_clicks: int) -> Any:
+                return [], 1, False
+
+            @app.callback(
+                Output("div-jobs-table", "children"),
+                Output("intvl-expand-all", "disabled"),
+                Output("intvl-expand-all", "n_intervals"),
+                Input("intvl-expand-all", "n_intervals"),
+                prevent_initial_call=True,
+            )
+            def delayed_table_gen(n_intvl):
+                nonlocal expanded
+                expanded = not expanded
+                return generate_jobs_table(expanded), True, 0
+
+        setup_expand_all_callbacks()
 
     @classmethod
     def setup_refresh_callbacks(cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType) -> None:
@@ -332,50 +364,15 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
                 timestamp=fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None,
                 status=fields["status"],
                 url=fields["url"],
-                num_children=len(job_struct["children"])
-                # html.Span([
-                #     dbc.Button(
-                #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                #         id={
-                #             "type": "btn-expand",
-                #             "index": job_struct['__uuid__'],
-                #         },
-                #         outline=True,
-                #         color="secondary",
-                #         class_name="m-1",
-                #         style={"padding": "1px 2px 1px 2px", }
-                #     ), ],
-                #     style={
-                #         "min-width": "68px",
-                #     },
-                # )
+                num_children=len(job_struct["children"]),
             )
         )
-        # if fields["timestamp"] and datetime.now() - fields["timestamp"] > timedelta(hours=24):
-        #     table.rows[-1].style = "dim"
     else:
         details.update(
             dict(
                 name=name,
                 serial=None,
                 status=job_struct.get("downstream_status", None),
-                # html.Span([
-                #     dbc.Button(
-                #         html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                #         id={
-                #             "type": "btn-expand",
-                #             "index": job_struct['__uuid__'],
-                #         },
-                #         outline=True,
-                #         color="secondary",
-                #         class_name="m-1",
-                #         style={"padding": "1px 2px 1px 2px", }
-                #     ), ],
-                #     style={
-                #         "min-width": "68px",
-                #     }
-                # ),
-                #
             )
         )
     details.update(
