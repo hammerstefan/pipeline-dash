@@ -20,3 +20,4 @@
 #   * downstream
 # todo: Define TypedDict for job_data
 # todo FIXME: refresh broken, neither table nor diagram get updated on refresh
+# todo: Datetime filter on table
