@@ -187,10 +187,10 @@ class LeftPane(dbc.Col):
                     title="Serial",
                     field="serial",
                     headerFilter="input",
-                    headerFilterFunc=ns("nameHeaderFilter"),
+                    headerFilterFunc=ns("serialHeaderFilter"),
                     minWidth=120,
                     responsive=3,
-                    widthGrow=0,
+                    widthGrow=1,
                 ),
                 dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
                 dict(

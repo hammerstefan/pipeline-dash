@@ -47,6 +47,16 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
 
             return filt(rowData);
         },
+        serialHeaderFilter: function (headerValue, rowValue, rowData, filterParams) {
+            re = new RegExp(headerValue, 'i');
+            rowMatch = re.test(rowValue);
+
+            function filt(rd) {
+                return re.test(rd.serial) || rd?._children?.some(filt);
+            }
+
+            return filt(rowData);
+        },
         statusHeaderFilter: function (headerValue, rowValue, rowData, filterParams) {
             function filt(rd) {
                 return rd.status === headerValue || rd?._children?.some(filt);
