@@ -179,10 +179,10 @@ def generate_node_traces(graph):
         status = graph.nodes[n]["data"]["status"]
         status_map = {
             "FAILURE": "darkred",
-            "SUCCESS": "green",
+            "SUCCESS": "#198754",
             "UNSTABLE": "orange",
-            "In Progress": "yellow",
-            None: "yellow",
+            "In Progress": "#0dcaf0",
+            None: "#0dcaf0",
             "default": "lightgray",
         }
         node_color.append(status_map.get(status, status_map["default"]))
@@ -197,8 +197,8 @@ def generate_edge_traces(graph):
             "FAILURE": "#ff6666",
             "SUCCESS": "green",
             "UNSTABLE": "orange",
-            "In Progress": "#e6e600",
-            None: "	#ff6666",
+            "In Progress": "#3dd5f3",
+            None: "#3dd5f3",
             "default": "gray",
         }
         status = graph.nodes[edge[1]]["data"]["downstream_status"]
