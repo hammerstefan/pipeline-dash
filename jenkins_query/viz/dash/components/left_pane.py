@@ -385,7 +385,7 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
         )
     details.update(
         dict(
-            _class=status_classname_map[job_struct.get("downstream_status", None)],
+            _class=status_classname_map[job_data.get(name, {}).get('status') or job_struct.get("downstream_status")],
             _uuid=job_struct["uuid"],
         )
     )
