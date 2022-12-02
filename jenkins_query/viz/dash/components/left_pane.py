@@ -22,6 +22,8 @@ class LeftPane(dbc.Col):
     class Callbacks:
         RefreshCallbackType = PartialCallback[Callable[..., Any]]
         refresh: RefreshCallbackType
+        RefreshDataCallbackType = Callable[[], tuple[PipelineDict, dict]]
+        refresh_data: RefreshDataCallbackType
 
     def __init__(self, app, pipeline_dict: PipelineDict, job_data: dict, callbacks: Callbacks):
 
@@ -116,7 +118,7 @@ class LeftPane(dbc.Col):
                 ),
                 # dbc.ListGroup(list(dbc.ListGroupItem(p) for p in job_details)),
                 html.Div(
-                    self.generate_jobs_table(pipeline_dict, job_data, False),
+                    self.generate_jobs_table(self.generate_job_details(pipeline_dict, job_data), False),
                     id="div-jobs-table",
                 ),
                 de.EventListener(
@@ -139,15 +141,19 @@ class LeftPane(dbc.Col):
 
         def setup_expand_all_callbacks():
             expanded = False
+            table_cache = []
 
             @app.callback(
                 Output("div-jobs-table", "children"),
                 Output("intvl-expand-all", "max_intervals"),
                 Output("intvl-expand-all", "disabled"),
                 Input("btn-expand-all", "n_clicks"),
+                State("jobs_table", "data"),
                 prevent_initial_call=True,
             )
-            def expand_all(n_clicks: int) -> Any:
+            def expand_all(n_clicks: int, table_data) -> Any:
+                nonlocal table_cache
+                table_cache = table_data
                 return [], 1, False
 
             @app.callback(
@@ -160,15 +166,12 @@ class LeftPane(dbc.Col):
             def delayed_table_gen(n_intvl):
                 nonlocal expanded
                 expanded = not expanded
-                return self.generate_jobs_table(pipeline_dict, job_data, expanded), True, 0
+                return self.generate_jobs_table(table_cache, expanded), True, 0
 
         setup_expand_all_callbacks()
 
     @classmethod
-    def generate_jobs_table(
-        cls, pipeline_dict: PipelineDict, job_data: dict, expand_all_: bool = False
-    ) -> DashTabulator:
-        job_details = cls.generate_job_details(pipeline_dict, job_data)
+    def generate_jobs_table(cls, table_data: list[dict], expand_all_: bool = False) -> DashTabulator:
         ns = de_js.Namespace("myNamespace", "tabulator")
         return DashTabulator(
             id="jobs_table",
@@ -282,7 +285,7 @@ class LeftPane(dbc.Col):
                     widthShrink=0,
                 ),
             ],
-            data=job_details,
+            data=table_data,
             options=dict(
                 dataTree=True,
                 dataTreeChildColumnCalcs=True,
@@ -344,7 +347,7 @@ class LeftPane(dbc.Col):
             if not dash.ctx.triggered_id == "intvl-refresh":
                 raise PreventUpdate()
             current_time = datetime.datetime.now().time().isoformat("seconds")
-            return callback.function(*args, **kwargs), current_time
+            return *callback.function(*args, **kwargs), current_time
 
 
 def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, indent=1) -> List[dict]:

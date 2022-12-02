@@ -70,7 +70,10 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
     )
 
     left_pane = components.LeftPane(
-        app, pipeline_dict, job_data, callbacks=components.LeftPane.Callbacks(refresh=callback)
+        app,
+        pipeline_dict,
+        job_data,
+        callbacks=components.LeftPane.Callbacks(refresh=callback, refresh_data=get_job_data_fn),
     )
 
     layout_graph, fig = components.graph_col.generate(graph)
