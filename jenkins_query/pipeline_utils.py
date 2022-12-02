@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import collections
+import itertools
 import uuid
-
-from dataclasses import dataclass
-from typing import Any, Callable, cast, Optional, TypedDict, Union, Protocol, ParamSpec, Concatenate
+from typing import Any, Callable, Concatenate, ParamSpec, TypedDict, Union
 
 import mergedeep  # type: ignore
 from typing_extensions import NotRequired
@@ -106,9 +105,9 @@ def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
         tmp: dict[str, PipelineDict]
         for k in data["pipelines"]:
             if type(data["pipelines"]) is dict:
-                tmp = fill_pipeline(k, data["pipelines"][k], server)
+                tmp = fill_pipeline(k, data["pipelines"][k], server) or dict()
             else:
-                tmp = fill_pipeline(k, [], server)
+                tmp = fill_pipeline(k, [], server) or dict()
             mergedeep.merge(pipelines, tmp, strategy=mergedeep.Strategy.TYPESAFE_ADDITIVE)
     return PipelineDict(
         name="",
@@ -152,3 +151,18 @@ def collect_jobs_dict(yaml_data: dict) -> dict:
             else:
                 fill_pipeline(k, [], server, struct)
     return struct
+
+
+def get_downstream_serials(d: PipelineDict, job_data: dict) -> set[str]:
+    def _collect(name, sub_dict: PipelineDict) -> set[str] | None:
+        serials_: set[str] = set()
+        serial = job_data.get(name, {}).get("serial")
+        if serial:
+            return {serial}
+        other_serials = recurse_pipeline(sub_dict, _collect)
+        if other_serials:
+            serials_ |= set(itertools.chain.from_iterable(other_serials))
+        return serials_ if serials_ else None
+
+    serials = _collect(d["name"], d)
+    return serials if serials else set()

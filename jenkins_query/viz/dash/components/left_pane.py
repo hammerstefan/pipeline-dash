@@ -1,7 +1,6 @@
 import datetime
 from collections import defaultdict
 from dataclasses import dataclass
-from pprint import pprint
 from typing import Any, Callable, List
 
 import dash  # type: ignore
@@ -12,8 +11,7 @@ from dash import dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_tabulator import DashTabulator  # type: ignore
 
-from jenkins_query.pipeline_utils import PipelineDict
-from jenkins_query.viz.dash import components
+from jenkins_query.pipeline_utils import get_downstream_serials, PipelineDict
 from jenkins_query.viz.dash.partial_callback import PartialCallback
 
 
@@ -381,7 +379,7 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
         details.update(
             dict(
                 name=name,
-                serial=None,
+                serial=sorted(get_downstream_serials(job_struct, job_data)),
                 status=job_struct.get("downstream_status", None),
             )
         )

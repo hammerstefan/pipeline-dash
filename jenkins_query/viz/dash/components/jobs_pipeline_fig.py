@@ -45,10 +45,10 @@ def size_traces(
         an.font.size = min(max(int(an.font.size * scale), 6), 24)
 
 
-def generate_plot_figure(graph: networkx.Graph) -> go.Figure:
+def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
     start_time = time.process_time()
     # pos = nx.multipartite_layout(graph, subset_key="layer", center=(0,1))
-    serial = str(max(float(graph.nodes[n]["data"]["serial"]) for n in graph.nodes()))
+    # serial = str(max(float(graph.nodes[n]["data"]["serial"]) for n in graph.nodes()))
     y_scale = do_layout(graph)
 
     edge_traces = generate_edge_traces(graph)
@@ -94,7 +94,7 @@ def generate_plot_figure(graph: networkx.Graph) -> go.Figure:
             ),
             selectdirection="v",
             showlegend=False,
-            titlefont_size=16,
+            titlefont_size=16,  # type: ignore
             uirevision=str(uuid.uuid4()),
             updatemenus=layoutButtons,
             xaxis=dict(
@@ -161,6 +161,7 @@ def generate_node_traces(graph):
     def find_unique_in_name(a: str, b: str):
         al = a.split("-")
         bl = b.split("-")
+        i = 0
         for i, t in enumerate(al):
             if t != bl[i]:
                 break
