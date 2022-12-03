@@ -61,7 +61,7 @@ def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
     default_scaling = 50 / y_scale
     size_traces(default_scaling, node_trace, edge_traces, annotations)
     y_scale_limit = 100
-    layoutButtons = list(
+    layout_buttons = list(
         [
             dict(
                 type="dropdown",
@@ -72,20 +72,21 @@ def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
                         dict(label="Label:Off", method="update", args=[{"visible": True}, {"annotations": []}]),
                     ]
                 ),
+                showactive=False,
+                pad=dict(b=0, l=0, r=0, t=0),
+                x=0.05,
+                y=1,
             )
         ]
     )
     fig = go.Figure(
         data=[*edge_traces.values(), node_trace],
         layout=go.Layout(
-            # paper_bgcolor="white",
-            # plot_bgcolor="white",
-            # title=f"Pipeline for {serial}",
             annotations=annotations if y_scale < y_scale_limit else [],
             autosize=True,
             height=y_scale * 15,
             hovermode="closest",
-            margin=dict(b=10, l=5, r=5, t=0, pad=0),
+            margin=go.layout.Margin(b=0, t=0, l=0, r=0),
             meta=dict(
                 default_edge_width=default_edge_width,
                 default_node_size=default_node_size,
@@ -96,7 +97,7 @@ def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
             showlegend=False,
             titlefont_size=16,  # type: ignore
             uirevision=str(uuid.uuid4()),
-            updatemenus=layoutButtons,
+            updatemenus=layout_buttons,
             xaxis=dict(
                 showgrid=False,
                 showticklabels=False,
@@ -130,14 +131,15 @@ def get_node_labels(graph, node_text_dict):
             text=node_text_dict.get(n, n),
             font=dict(
                 size=12,
+                color="#fff",
             ),
             align="left",
             showarrow=False,
             yanchor="top",
             xanchor="left",
             textangle=25,
-            bgcolor="white",
-            opacity=0.8,
+            bgcolor="#222222",
+            opacity=0.75,
         )
         for n in graph.nodes()
     ]

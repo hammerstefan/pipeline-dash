@@ -91,7 +91,7 @@ class LeftPane(dbc.Col):
                                 "index": pipeline_dict["uuid"],
                             },
                             outline=True,
-                            color="secondary",
+                            color="light",
                             class_name="m-1",
                             style={
                                 "padding": "1px 2px 1px 2px",
@@ -101,7 +101,7 @@ class LeftPane(dbc.Col):
                             html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
                             id="btn-expand-all",
                             outline=True,
-                            color="secondary",
+                            color="light",
                             class_name="m-1",
                             style={
                                 "padding": "1px 2px 1px 2px",
@@ -206,6 +206,7 @@ class LeftPane(dbc.Col):
                 dict(
                     title="Status",
                     field="status",
+                    formatter=ns("statusCellFormat"),
                     headerFilter="select",
                     headerFilterFunc=ns("statusHeaderFilter"),
                     headerFilterLiveFilter=False,
@@ -214,41 +215,32 @@ class LeftPane(dbc.Col):
                             dict(
                                 label="Clear Filter",
                                 value="",
+                                elementAttributes={"style": "color:#fff"},
                             ),
                             dict(
                                 label="FAILURE",
                                 value="FAILURE",
-                                elementAttributes={
-                                    "class": "bg-danger bg-opacity-25",
-                                },
+                                elementAttributes={"style": "color:#fff; background-color: #a23d32"},
                             ),
                             dict(
                                 label="In Progress",
                                 value="In Progress",
-                                elementAttributes={
-                                    "class": "bg-info bg-opacity-25",
-                                },
+                                elementAttributes={"style": "color:#fff; background-color: #2d6e9a"},
                             ),
                             dict(
                                 label="NOT RUN",
                                 value="NOT RUN",
-                                elementAttributes={
-                                    "class": "bg-dark bg-opacity-25",
-                                },
+                                elementAttributes={"style": "color:#fff; background-color: #7c8187"},
                             ),
                             dict(
                                 label="SUCCESS",
                                 value="SUCCESS",
-                                elementAttributes={
-                                    "class": "bg-success bg-opacity-25",
-                                },
+                                elementAttributes={"style": "color:#fff; background-color: #0b8667"},
                             ),
                             dict(
                                 label="UNSTABLE",
                                 value="UNSTABLE",
-                                elementAttributes={
-                                    "class": "bg-warning bg-opacity-25",
-                                },
+                                elementAttributes={"style": "color:#fff; background-color: #aa7117"},
                             ),
                         ],
                         multiselect=0,
@@ -304,9 +296,9 @@ class LeftPane(dbc.Col):
                 layout="fitColumns",
                 responsiveLayout="hide",
                 rowClick=ns("rowClick"),
-                rowFormatter=ns("rowFormat"),
+                # rowFormatter=ns("rowFormat"),
             ),
-            theme="bootstrap/tabulator_bootstrap4",
+            theme="tabulator_midnight",
         )
 
     @classmethod
@@ -363,14 +355,14 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
     details: dict = dict(
         _children=[],
     )
-    status_classname_map = defaultdict(
-        lambda: "table-dark",
+    status_color_map = defaultdict(
+        lambda: "#7c8187",
         {
-            "FAILURE": "table-danger",
-            "SUCCESS": "table-success",
-            "UNSTABLE": "table-warning",
-            "In Progress": "table-info",
-            None: "table-info",
+            "FAILURE": "#a23d32",
+            "SUCCESS": "#0b8667",
+            "UNSTABLE": "#aa7117",
+            "In Progress": "#2d6e9a",
+            None: "#2d6e9a",
         },
     )
     if "server" in job_struct:
@@ -396,7 +388,7 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
         )
     details.update(
         dict(
-            _class=status_classname_map[job_data.get(name, {}).get("status") or job_struct.get("downstream_status")],
+            _color=status_color_map[job_data.get(name, {}).get("status") or job_struct.get("downstream_status")],
             _uuid=job_struct["uuid"],
         )
     )

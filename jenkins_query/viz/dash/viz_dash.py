@@ -36,7 +36,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
     app = de.DashProxy(
         __name__,
         external_stylesheets=[
-            dbc.themes.BOOTSTRAP,
+            dbc.themes.DARKLY,
             dbc.icons.BOOTSTRAP,
         ],
         transforms=[
@@ -46,7 +46,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
             # de.OperatorTransform(),
         ],
     )
-    dash_bootstrap_templates.load_figure_template()
+    dash_bootstrap_templates.load_figure_template("darkly")
 
     def callback_refresh(figure_root) -> tuple[go.Figure, list[dict]]:
         # TODO: don't regen the world just to refresh some data from Jenkins

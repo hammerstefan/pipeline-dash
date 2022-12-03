@@ -28,6 +28,13 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
             if (cell.getRow().getData()?.url)
                 return "<i class='bi bi-info-circle' title='Display Job Info' style='font-size:1.0rem'></i>";
         },
+        statusCellFormat: function (cell, formatterPrams, onRendered) {
+            rowData = cell.getRow().getData()
+            cell.getElement().style.backgroundColor = rowData._color
+            return cell.getValue()
+            // return cell.getData()
+            // return element
+        },
         infoIconCellClick: function (e, cell) {
             console.log("infoIconCellClick")
             if (!cell.getRow().getData()?.url)
