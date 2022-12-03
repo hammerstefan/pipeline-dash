@@ -1,7 +1,7 @@
 import datetime
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional, TypedDict
 
 import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
@@ -44,7 +44,7 @@ class LeftPane(dbc.Col):
                 ),
                 dbc.InputGroup(
                     [
-                        dbc.InputGroupText(dbc.Label("Refresh every", align="end")),
+                        dbc.InputGroupText(dbc.Label("Refresh every", align="end", class_name="my-0")),
                         dbc.Select(
                             id="sel-refresh-interval",
                             options=[
@@ -137,39 +137,49 @@ class LeftPane(dbc.Col):
             id="col-left-pane",
         )
 
-        def setup_expand_all_callbacks():
-            expanded = False
-            table_cache = []
-
-            @app.callback(
-                Output("div-jobs-table", "children"),
-                Output("intvl-expand-all", "max_intervals"),
-                Output("intvl-expand-all", "disabled"),
-                Input("btn-expand-all", "n_clicks"),
-                State("jobs_table", "data"),
-                prevent_initial_call=True,
-            )
-            def expand_all(n_clicks: int, table_data) -> Any:
-                nonlocal table_cache
-                table_cache = table_data
-                return [], 1, False
-
-            @app.callback(
-                Output("div-jobs-table", "children"),
-                Output("intvl-expand-all", "disabled"),
-                Output("intvl-expand-all", "n_intervals"),
-                Input("intvl-expand-all", "n_intervals"),
-                prevent_initial_call=True,
-            )
-            def delayed_table_gen(n_intvl):
-                nonlocal expanded
-                expanded = not expanded
-                return self.generate_jobs_table(table_cache, expanded), True, 0
-
-        setup_expand_all_callbacks()
+        self.setup_expand_all_callbacks(app)
 
     @classmethod
-    def generate_jobs_table(cls, table_data: list[dict], expand_all_: bool = False) -> DashTabulator:
+    def setup_expand_all_callbacks(cls, app: dash.Dash):
+        expanded = False
+
+        class TableCache(TypedDict):
+            data: dict
+            filtering: dict
+
+        table_cache: TableCache = dict()
+
+        @app.callback(
+            Output("div-jobs-table", "children"),
+            Output("intvl-expand-all", "max_intervals"),
+            Output("intvl-expand-all", "disabled"),
+            Input("btn-expand-all", "n_clicks"),
+            State("jobs_table", "data"),
+            State("jobs_table", "dataFiltering"),
+            prevent_initial_call=True,
+        )
+        def expand_all(n_clicks: int, table_data, filtering) -> Any:
+            nonlocal table_cache
+            table_cache["data"] = table_data
+            table_cache["filtering"] = filtering
+            return [], 1, False
+
+        @app.callback(
+            Output("div-jobs-table", "children"),
+            Output("intvl-expand-all", "disabled"),
+            Output("intvl-expand-all", "n_intervals"),
+            Input("intvl-expand-all", "n_intervals"),
+            prevent_initial_call=True,
+        )
+        def delayed_table_gen(n_intvl):
+            nonlocal expanded, table_cache
+            expanded = not expanded
+            return cls.generate_jobs_table(table_cache["data"], expanded, table_cache["filtering"]), True, 0
+
+    @classmethod
+    def generate_jobs_table(
+        cls, table_data: list[dict], expand_all_: bool = False, filtering: Optional[list[dict]] = None
+    ) -> DashTabulator:
         ns = de_js.Namespace("myNamespace", "tabulator")
         return DashTabulator(
             id="jobs_table",
@@ -284,6 +294,7 @@ class LeftPane(dbc.Col):
                 ),
             ],
             data=table_data,
+            initialHeaderFilter=filtering,
             options=dict(
                 dataTree=True,
                 dataTreeChildColumnCalcs=True,
@@ -385,7 +396,7 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
         )
     details.update(
         dict(
-            _class=status_classname_map[job_data.get(name, {}).get('status') or job_struct.get("downstream_status")],
+            _class=status_classname_map[job_data.get(name, {}).get("status") or job_struct.get("downstream_status")],
             _uuid=job_struct["uuid"],
         )
     )

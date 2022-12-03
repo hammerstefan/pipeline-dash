@@ -3,8 +3,7 @@
 # todo: Use 'label' option in YAML to set node label on graph
 # todo: Add more data to jobs table
 # todo: Make navigation of jobs table faster
-# todo: * Expand tree button
-# todo: Migrate to poetry
+# todo: * Expand sub-tree button
 # todo: Revisit: Handle graph scaling to viewport size
 # todo: Pipepline depth limit selection
 # todo: fix top level root view
@@ -19,5 +18,4 @@
 #   * history
 #   * downstream
 # todo: Define TypedDict for job_data
-# todo FIXME: refresh broken, neither table nor diagram get updated on refresh
 # todo: Datetime filter on table
