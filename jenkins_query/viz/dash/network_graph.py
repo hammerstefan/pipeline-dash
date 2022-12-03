@@ -5,6 +5,7 @@ from typing import List, Tuple, TypedDict
 
 import networkx  # type: ignore
 import networkx as nx
+from typing_extensions import NotRequired
 
 from jenkins_query.pipeline_utils import get_downstream_serials, PipelineDict
 
@@ -16,6 +17,7 @@ class NodeCustomData(TypedDict):
     serial: str | list[str]
     status: str
     url: str | None
+    label: NotRequired[str]
     # downstream_serials: tuple[str, ...]
 
 
@@ -43,6 +45,9 @@ def generate_nx(job_tree: PipelineDict, job_data: dict) -> networkx.DiGraph:
             "name": name,
             # "downstream_serials": tuple(get_downstream_serials(d)),
         }
+        if label := d.get("label"):
+            custom_data["label"] = label
+
         return custom_data
 
     def get_nodes(d: PipelineDict, parent="", depth=0) -> Tuple[dict, List[Tuple[str, str]]]:

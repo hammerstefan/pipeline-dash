@@ -168,7 +168,8 @@ def generate_node_traces(graph):
         return "-".join(bl[i:])
 
     node_text_dict = {
-        edge[1]: find_unique_in_name(graph.nodes[edge[0]]["data"]["name"], graph.nodes[edge[1]]["data"]["name"])
+        edge[1]: graph.nodes[edge[1]]["data"].get("label")
+        or find_unique_in_name(graph.nodes[edge[0]]["data"]["name"], graph.nodes[edge[1]]["data"]["name"])
         for edge in graph.edges()
     }
     node_text = list(node_text_dict.get(n, n) for n in graph.nodes())

@@ -17,6 +17,7 @@ class PipelineDict(TypedDict):
     recurse: NotRequired[bool]
     status: NotRequired[str]
     downstream_status: NotRequired[str]
+    label: NotRequired[str]
 
 
 P = ParamSpec("P")
@@ -93,6 +94,9 @@ def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
             uuid=str(uuid.uuid4()),
             recurse=recurse_,
         )
+        if isinstance(pipeline, dict):
+            if label := pipeline.get("label"):
+                p["label"] = label
         if server_:
             p["server"] = server_
         children = recurse_yaml(pipeline, fill_pipeline, server)
