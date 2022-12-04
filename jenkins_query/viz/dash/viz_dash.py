@@ -1,10 +1,13 @@
+import json
 import time
 from functools import wraps
+from importlib.resources import files
 from pprint import pprint
 from typing import Callable
 
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
+import plotly
 from dash import dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_extensions import enrich as de  # type: ignore
@@ -36,7 +39,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
     app = de.DashProxy(
         __name__,
         external_stylesheets=[
-            dbc.themes.DARKLY,
+            # dbc.themes.DARKLY,
             dbc.icons.BOOTSTRAP,
         ],
         transforms=[
@@ -45,6 +48,10 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
             de.NoOutputTransform(),
             # de.OperatorTransform(),
         ],
+        meta_tags=[
+            # dict(name="color-scheme", content="only light"),
+        ],
+        assets_ignore="tabulator_.*css",
     )
     dash_bootstrap_templates.load_figure_template("darkly")
 
@@ -81,6 +88,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
     def layout_container() -> dbc.Container:
         return dbc.Container(
             [
+                html.Link(id="link-stylesheet", rel="stylesheet", href=dbc.themes.DARKLY),
+                html.Link(id="link-tabulator-stylesheet", rel="stylesheet", href="/assets/tabulator_midnight.min.css"),
                 dbc.Row(
                     [
                         left_pane,
@@ -236,5 +245,28 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
         else:
             components.jobs_pipeline_fig.resize_fig_data_from_y_delta(figure, None)
         return figure, responsive
+
+    @app.callback(
+        Output("link-stylesheet", "href"),
+        Output("link-tabulator-stylesheet", "href"),
+        Output("pipeline-graph", "figure"),
+        Input("cb-dark-mode", "value"),
+        State("pipeline-graph", "figure"),
+    )
+    def cb_dark_mode(dark, figure):
+        if dark:
+            # with (files("dash_bootstrap_templates") / "templates" / "darkly.json").open() as f:
+            #     template = json.load(f)
+            template = json.loads(files(__package__).joinpath("templates/darkly.json").read_text())
+            plotly.io.templates["darkly"] = template
+            plotly.io.templates.default = "darkly"
+            figure["layout"]["template"] = template
+            return dbc.themes.DARKLY, "/assets/tabulator_midnight.min.css", figure
+
+        template = json.loads(files(__package__).joinpath("templates/bootstrap.json").read_text())
+        plotly.io.templates["bootstrap"] = template
+        plotly.io.templates.default = "bootstrap"
+        figure["layout"]["template"] = template
+        return dbc.themes.BOOTSTRAP, "/assets/tabulator_simple.min.css", figure
 
     app.run_server(debug=True)

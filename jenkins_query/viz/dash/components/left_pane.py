@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from collections import defaultdict
 from dataclasses import dataclass
@@ -83,6 +85,16 @@ class LeftPane(dbc.Col):
                                 display="inline-block",
                             ),
                         ),
+                        dbc.Switch(
+                            label="Dark Mode",
+                            id="cb-dark-mode",
+                            value=True,
+                            className="m-2",
+                            style=dict(
+                                display="inline-block",
+                            ),
+                            persistence=True,
+                        ),
                         html.Div([], id="div-test"),
                         dbc.Button(
                             html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
@@ -90,8 +102,7 @@ class LeftPane(dbc.Col):
                                 "type": "btn-diagram",
                                 "index": pipeline_dict["uuid"],
                             },
-                            outline=True,
-                            color="light",
+                            color="secondary",
                             class_name="m-1",
                             style={
                                 "padding": "1px 2px 1px 2px",
@@ -100,8 +111,7 @@ class LeftPane(dbc.Col):
                         dbc.Button(
                             html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
                             id="btn-expand-all",
-                            outline=True,
-                            color="light",
+                            color="secondary",
                             class_name="m-1",
                             style={
                                 "padding": "1px 2px 1px 2px",
@@ -179,126 +189,11 @@ class LeftPane(dbc.Col):
     @classmethod
     def generate_jobs_table(
         cls, table_data: list[dict], expand_all_: bool = False, filtering: Optional[list[dict]] = None
-    ) -> DashTabulator:
-        ns = de_js.Namespace("myNamespace", "tabulator")
-        return DashTabulator(
-            id="jobs_table",
-            columns=[
-                dict(
-                    field="name",
-                    headerFilter="input",
-                    headerFilterFunc=ns("nameHeaderFilter"),
-                    minWidth=200,
-                    responsive=0,
-                    title="Name",
-                    widthGrow=3,
-                ),
-                dict(
-                    title="Serial",
-                    field="serial",
-                    headerFilter="input",
-                    headerFilterFunc=ns("serialHeaderFilter"),
-                    minWidth=120,
-                    responsive=3,
-                    widthGrow=1,
-                ),
-                dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
-                dict(
-                    title="Status",
-                    field="status",
-                    formatter=ns("statusCellFormat"),
-                    headerFilter="select",
-                    headerFilterFunc=ns("statusHeaderFilter"),
-                    headerFilterLiveFilter=False,
-                    headerFilterParams=dict(
-                        values=[
-                            dict(
-                                label="Clear Filter",
-                                value="",
-                                elementAttributes={"style": "color:#fff"},
-                            ),
-                            dict(
-                                label="FAILURE",
-                                value="FAILURE",
-                                elementAttributes={"style": "color:#fff; background-color: #a23d32"},
-                            ),
-                            dict(
-                                label="In Progress",
-                                value="In Progress",
-                                elementAttributes={"style": "color:#fff; background-color: #2d6e9a"},
-                            ),
-                            dict(
-                                label="NOT RUN",
-                                value="NOT RUN",
-                                elementAttributes={"style": "color:#fff; background-color: #7c8187"},
-                            ),
-                            dict(
-                                label="SUCCESS",
-                                value="SUCCESS",
-                                elementAttributes={"style": "color:#fff; background-color: #0b8667"},
-                            ),
-                            dict(
-                                label="UNSTABLE",
-                                value="UNSTABLE",
-                                elementAttributes={"style": "color:#fff; background-color: #aa7117"},
-                            ),
-                        ],
-                        multiselect=0,
-                    ),
-                    minWidth=100,
-                    responsive=2,
-                    widthGrow=1,
-                ),
-                dict(
-                    title="Job",
-                    field="url",
-                    formatter="link",
-                    formatterParams=dict(
-                        labelField="build_num",
-                        target="_blank",
-                    ),
-                    width=65,
-                    widthGrow=0,
-                ),
-                dict(
-                    cellClick=ns("infoIconCellClick"),
-                    cssClass="table-sm",
-                    formatter=ns("infoIconColFormat"),
-                    headerSort=False,
-                    hozAlign="center",
-                    resizable=False,
-                    variableHeight=False,
-                    width="40",
-                    widthGrow=0,
-                    widthShrink=0,
-                ),
-                dict(
-                    cellClick=ns("diagramIconCellClick"),
-                    cssClass="table-sm",
-                    formatter=ns("diagramIconColFormat"),
-                    headerSort=False,
-                    hozAlign="center",
-                    resizable=False,
-                    variableHeight=False,
-                    width="40",
-                    widthGrow=0,
-                    widthShrink=0,
-                ),
-            ],
-            data=table_data,
-            initialHeaderFilter=filtering,
-            options=dict(
-                dataTree=True,
-                dataTreeChildColumnCalcs=True,
-                dataTreeChildIndent=5,
-                dataTreeFilter=True,
-                dataTreeStartExpanded=expand_all_,
-                layout="fitColumns",
-                responsiveLayout="hide",
-                rowClick=ns("rowClick"),
-                # rowFormatter=ns("rowFormat"),
-            ),
-            theme="tabulator_midnight",
+    ) -> JobsTable:
+        return cls.JobsTable(
+            table_data,
+            expand_all_,
+            filtering,
         )
 
     @classmethod
@@ -349,6 +244,154 @@ class LeftPane(dbc.Col):
                 raise PreventUpdate()
             current_time = datetime.datetime.now().time().isoformat("seconds")
             return *callback.function(*args, **kwargs), current_time
+
+    class JobsTable(html.Div):
+        class Ids:
+            div = "div-jobs-table-inner"
+            table = "jobs_table"
+            refresh_interval = "intvl-jobs-table-refresh"
+
+        ids = Ids
+
+        def __init__(
+            self,
+            table_data: list[dict],
+            expand_all_: bool = False,
+            filtering: Optional[list[dict]] = None,
+            theme: str = "tabulator_midnight",
+        ):
+            ns = de_js.Namespace("myNamespace", "tabulator")
+            super().__init__(
+                [
+                    DashTabulator(
+                        id=self.ids.table,
+                        columns=[
+                            dict(
+                                field="name",
+                                headerFilter="input",
+                                headerFilterFunc=ns("nameHeaderFilter"),
+                                minWidth=200,
+                                responsive=0,
+                                title="Name",
+                                widthGrow=3,
+                            ),
+                            dict(
+                                title="Serial",
+                                field="serial",
+                                headerFilter="input",
+                                headerFilterFunc=ns("serialHeaderFilter"),
+                                minWidth=120,
+                                responsive=3,
+                                widthGrow=1,
+                            ),
+                            dict(title="Time (UTC)", field="timestamp", minWidth=200, widthGrow=0, responsive=10),
+                            dict(
+                                title="Status",
+                                field="status",
+                                formatter=ns("statusCellFormat"),
+                                headerFilter="select",
+                                headerFilterFunc=ns("statusHeaderFilter"),
+                                headerFilterLiveFilter=False,
+                                headerFilterParams=dict(
+                                    values=[
+                                        dict(
+                                            label="Clear Filter",
+                                            value="",
+                                            elementAttributes={"style": "color:#fff"},
+                                        ),
+                                        dict(
+                                            label="FAILURE",
+                                            value="FAILURE",
+                                            elementAttributes={"style": "color:#fff; background-color: #a23d32"},
+                                        ),
+                                        dict(
+                                            label="In Progress",
+                                            value="In Progress",
+                                            elementAttributes={"style": "color:#fff; background-color: #2d6e9a"},
+                                        ),
+                                        dict(
+                                            label="NOT RUN",
+                                            value="NOT RUN",
+                                            elementAttributes={"style": "color:#fff; background-color: #7c8187"},
+                                        ),
+                                        dict(
+                                            label="SUCCESS",
+                                            value="SUCCESS",
+                                            elementAttributes={"style": "color:#fff; background-color: #0b8667"},
+                                        ),
+                                        dict(
+                                            label="UNSTABLE",
+                                            value="UNSTABLE",
+                                            elementAttributes={"style": "color:#fff; background-color: #aa7117"},
+                                        ),
+                                    ],
+                                    multiselect=0,
+                                ),
+                                minWidth=100,
+                                responsive=2,
+                                widthGrow=1,
+                            ),
+                            dict(
+                                title="Job",
+                                field="url",
+                                formatter="link",
+                                formatterParams=dict(
+                                    labelField="build_num",
+                                    target="_blank",
+                                ),
+                                width=65,
+                                widthGrow=0,
+                            ),
+                            dict(
+                                cellClick=ns("infoIconCellClick"),
+                                cssClass="table-sm",
+                                formatter=ns("infoIconColFormat"),
+                                headerSort=False,
+                                hozAlign="center",
+                                resizable=False,
+                                variableHeight=False,
+                                width="40",
+                                widthGrow=0,
+                                widthShrink=0,
+                            ),
+                            dict(
+                                cellClick=ns("diagramIconCellClick"),
+                                cssClass="table-sm",
+                                formatter=ns("diagramIconColFormat"),
+                                headerSort=False,
+                                hozAlign="center",
+                                resizable=False,
+                                variableHeight=False,
+                                width="40",
+                                widthGrow=0,
+                                widthShrink=0,
+                            ),
+                        ],
+                        data=table_data,
+                        initialHeaderFilter=filtering,
+                        options=dict(
+                            dataTree=True,
+                            dataTreeChildColumnCalcs=True,
+                            dataTreeChildIndent=5,
+                            dataTreeFilter=True,
+                            dataTreeStartExpanded=expand_all_,
+                            layout="fitColumns",
+                            responsiveLayout="hide",
+                            rowClick=ns("rowClick"),
+                            # rowFormatter=ns("rowFormat"),
+                        ),
+                        theme=None,
+                    ),
+                    dcc.Interval(id=self.ids.refresh_interval, interval=10, max_intervals=1, disabled=True),
+                ],
+                id=self.ids.div,
+            )
+
+        class Refresh:
+            """
+            Some changes to the table require a DOM recreation of the DashTabulator object.
+            Solve that by resetting the containing div to empty and then create a new DashTabulator through and interval.
+            """
 
 
 def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, indent=1) -> List[dict]:

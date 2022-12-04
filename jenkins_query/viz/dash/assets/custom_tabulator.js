@@ -31,6 +31,7 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
         statusCellFormat: function (cell, formatterPrams, onRendered) {
             rowData = cell.getRow().getData()
             cell.getElement().style.backgroundColor = rowData._color
+            cell.getElement().style.color = "#fff"
             return cell.getValue()
             // return cell.getData()
             // return element

@@ -19,3 +19,4 @@
 #   * downstream
 # todo: Define TypedDict for job_data
 # todo: Datetime filter on table
+# todo: set global prevent_initial_callback and adjust individual callbacks

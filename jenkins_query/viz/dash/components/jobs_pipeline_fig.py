@@ -131,14 +131,12 @@ def get_node_labels(graph, node_text_dict):
             text=node_text_dict.get(n, n),
             font=dict(
                 size=12,
-                color="#fff",
             ),
             align="left",
             showarrow=False,
             yanchor="top",
             xanchor="left",
             textangle=25,
-            bgcolor="#222222",
             opacity=0.75,
         )
         for n in graph.nodes()
