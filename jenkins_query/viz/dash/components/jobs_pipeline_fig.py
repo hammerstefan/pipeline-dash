@@ -59,6 +59,7 @@ def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
 
     annotations = get_node_labels(graph, node_text_dict)
     default_scaling = 50 / y_scale
+    default_scaling = min(default_scaling, 3.0)
     size_traces(default_scaling, node_trace, edge_traces, annotations)
     y_scale_limit = 100
     layout_buttons = list(
@@ -271,4 +272,5 @@ def resize_fig_data_from_y_delta(fig: dict, new_y_delta: Optional[float]):
         if new_y_delta is not None
         else default_scaling
     )
+    scale = min(scale, 3.0)
     resize_fig_data_from_scale(fig, scale)

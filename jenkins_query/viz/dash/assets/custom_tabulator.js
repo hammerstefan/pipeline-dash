@@ -20,6 +20,8 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
             if (!cell.getRow().getData()?._children)
                 return
             const uuid = cell.getRow().getData()._uuid
+            console.log(cell.getRow().getData())
+            console.log(uuid)
             const event = new CustomEvent("clickDiagramIcon", {detail: uuid})
             document.dispatchEvent(event)
             e.cancelBubble = true

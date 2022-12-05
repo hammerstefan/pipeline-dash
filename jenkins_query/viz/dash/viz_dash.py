@@ -56,15 +56,16 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
     dash_bootstrap_templates.load_figure_template("darkly")
 
     def callback_refresh(figure_root) -> tuple[go.Figure, list[dict]]:
+        nonlocal pipeline_dict, job_data
         # TODO: don't regen the world just to refresh some data from Jenkins
         print("CALLBACK")
-        pipeline_dict_, job_data_ = get_job_data_fn()
-        sub_dict = find_pipeline(pipeline_dict_, lambda _, p: p.get("uuid", "") == figure_root)
+        pipeline_dict, job_data = get_job_data_fn()
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == figure_root)
         if sub_dict is None:
-            sub_dict = pipeline_dict_
-        graph_ = generate_nx(sub_dict, job_data_)
+            sub_dict = pipeline_dict
+        graph_ = generate_nx(sub_dict, job_data)
         fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
-        table_data = components.LeftPane.generate_job_details(pipeline_dict_, job_data_)
+        table_data = components.LeftPane.generate_job_details(pipeline_dict, job_data)
         return fig_, table_data
 
     callback: components.LeftPane.Callbacks.RefreshCallbackType = PartialCallback(
