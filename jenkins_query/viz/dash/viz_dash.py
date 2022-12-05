@@ -5,10 +5,11 @@ from importlib.resources import files
 from pprint import pprint
 from typing import Callable
 
+import dash
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
 import plotly
-from dash import dcc, html, Input, Output, State  # type: ignore
+from dash import ALL, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_extensions import enrich as de  # type: ignore
 from plotly import graph_objects as go  # type: ignore
@@ -216,15 +217,21 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
             Output("store-figure-root", "data"),
         ],
         Input("el-diagram-click", "event"),
+        Input("btn-diagram-root", "n_clicks"),
         prevent_initial_call=True,
     )
-    def input_btn_diagram(e: dict):
-        uuid = e.get("detail")
+    def input_btn_diagram(e: dict, n_clicks):
+        start_time = time.process_time()
+        if dash.ctx.triggered_id == "btn-diagram-root":
+            uuid = pipeline_dict["uuid"]
+        else:
+            uuid = e.get("detail")
         if uuid is None:
             raise PreventUpdate
-        nonlocal fig
-        start_time = time.process_time()
         sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == uuid)
+        nonlocal fig
+        if sub_dict is None:
+            raise PreventUpdate
         graph = generate_nx(sub_dict, job_data)
         end_time = time.process_time()
         print(f"Generated network in {end_time - start_time} sec")

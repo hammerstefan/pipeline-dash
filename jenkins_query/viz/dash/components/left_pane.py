@@ -98,10 +98,7 @@ class LeftPane(dbc.Col):
                         html.Div([], id="div-test"),
                         dbc.Button(
                             html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
-                            id={
-                                "type": "btn-diagram",
-                                "index": pipeline_dict["uuid"],
-                            },
+                            id="btn-diagram-root",
                             color="secondary",
                             class_name="m-1",
                             style={
