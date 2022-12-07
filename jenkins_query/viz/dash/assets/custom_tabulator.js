@@ -7,7 +7,8 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
         rowClick: function (e, row) {
             function expand(r) {
                 r.treeToggle();
-                if (r.getData().num_children === 1)
+                console.log(r.getTreeChildren())
+                if (r.getData()?._children?.length === 1)
                     expand(r.getTreeChildren()[0]);
             }
             expand(row);

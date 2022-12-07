@@ -5,7 +5,6 @@
 # todo: * Expand sub-tree button
 # todo: Revisit: Handle graph scaling to viewport size
 # todo: Pipepline depth limit selection
-# todo: fix top level root view
 # todo: move settings to modal
 # todo: take another look at improving the custom-callback syntax for components. @decorator somehow?
 # todo: Take another look at top level callbacks and dependency on id string

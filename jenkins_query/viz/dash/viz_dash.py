@@ -156,26 +156,6 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
         )
         return [JobPane(data, id="offcanvas-job-pane")]
 
-    # app.clientside_callback(
-    #     """
-    #     function(nclicks, id, open, children) {
-    #         open = ! open;
-    #         s = JSON.stringify(id, Object.keys(id).sort());
-    #         dom = document.getElementById(s);
-    #         elements = dom.getElementsByTagName("details");
-    #         for (let e of elements)
-    #             e.open = open;
-    #         return open;
-    #     }
-    #     """,
-    #     Output({"type": "details-job", "index": MATCH}, "open"),
-    #     Input({"type": "btn-expand", "index": MATCH}, "n_clicks"),
-    #     State({"type": "details-job", "index": MATCH}, "id"),
-    #     State({"type": "details-job", "index": MATCH}, "open"),
-    #     State({"type": "details-job", "index": MATCH}, "children"),
-    #     prevent_initial_call=True,
-    # )
-
     @app.callback(
         Output("pipeline-graph", "figure"),
         Input("pipeline-graph", "relayoutData"),
