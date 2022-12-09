@@ -8,6 +8,8 @@ from typing import Any, Callable, Concatenate, ParamSpec, TypedDict, Union
 import mergedeep  # type: ignore
 from typing_extensions import NotRequired
 
+from jenkins_query.job_data import JobData
+
 
 class PipelineDict(TypedDict):
     name: str
@@ -160,7 +162,7 @@ def collect_jobs_dict(yaml_data: dict) -> dict:
 def get_downstream_serials(d: PipelineDict, job_data: dict) -> set[str]:
     def _collect(name, sub_dict: PipelineDict) -> set[str] | None:
         serials_: set[str] = set()
-        serial = job_data.get(name, {}).get("serial")
+        serial = job_data.get(name, JobData.UNDEFINED).serial
         if serial:
             return {serial}
         other_serials = recurse_pipeline(sub_dict, _collect)

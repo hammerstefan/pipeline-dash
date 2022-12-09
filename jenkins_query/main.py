@@ -19,6 +19,7 @@ import click as click
 import mergedeep  # type: ignore
 import yaml
 
+from jenkins_query.job_data import JobData, JobDataDict, JobStatus
 from jenkins_query.pipeline_utils import (
     add_recursive_jobs_pipeline,
     collect_jobs_dict,
@@ -88,7 +89,20 @@ def do_verbose():
     requests_log.propagate = True
 
 
-async def get_job_data(session, server, job, load_dir, store_dir):
+async def get_job_data(
+    session: aiohttp.ClientSession, server: str, job: str, load_dir: Optional[str], store_dir: Optional[str]
+) -> JobData:
+    """
+    Get data for a single Jenkins `job` from the `server` url
+    :param session: aiohttp.ClientSession to use for requests
+    :param server: Base URL of the Jenkins Server
+    :param job: Job name for which to get data
+    :param load_dir: Local directory path str from which to load cached Jenkins data (can be used to run this
+    function without an internet connection to `server`)
+    :param store_dir: Local directory path str where to store cached Jenkins data (can be used to run this
+    function without an internet connection to `server`). Can later be used as the `load_dir` param of this function.
+    :return: JobData dataclass containing job data
+    """
     server_url = urlparse(server)
     r = await api(
         session,
@@ -101,14 +115,10 @@ async def get_job_data(session, server, job, load_dir, store_dir):
 
     if not r["lastBuild"]:
         # there has not been a build
-        return {
-            "name": name,
-            "build_num": None,
-            "status": "NOT RUN",
-            "timestamp": None,
-            "serial": None,
-            "url": None,
-        }
+        return JobData(
+            name=name,
+            status=JobStatus.NOT_RUN,
+        )
     downstream = {i["name"]: server for i in r["downstreamProjects"]}
     # update base netloc of url to use that of the job config's server address, to avoid problems with SSO
     url = urlsplit(r["lastBuild"]["url"])
@@ -124,19 +134,34 @@ async def get_job_data(session, server, job, load_dir, store_dir):
     parameters = next_get(
         (a["parameters"] for a in r["actions"] if a and a["_class"] == "hudson.model.ParametersAction"), []
     )
-    data = {
-        "name": name,
-        "build_num": r["id"],
-        "status": r["result"],
-        "timestamp": datetime.utcfromtimestamp(r["timestamp"] / 1000.0),
-        "serial": next_get((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
-        "url": url.geturl(),
-        "downstream": downstream,
-    }
+    data = JobData(
+        name=name,
+        build_num=r["id"],
+        status=JobStatus(r["result"]),
+        timestamp=datetime.utcfromtimestamp(r["timestamp"] / 1000.0),
+        serial=next_get((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
+        url=url.geturl(),
+        downstream=downstream,
+    )
     return data
 
 
-async def collect_job_data(pipeline_jobs: dict, load_dir, store_dir) -> dict:
+JobName = str
+ServerUrl = str
+
+
+async def collect_job_data(
+    pipeline_jobs: dict[JobName, ServerUrl], load_dir: Optional[str], store_dir: Optional[str]
+) -> JobDataDict:
+    """
+    Get dict of all job data
+    :param pipeline_jobs:
+    :param load_dir: Local directory path str from which to load cached Jenkins data (can be used to run this
+    function without an internet connection to `server`)
+    :param store_dir: Local directory path str where to store cached Jenkins data (can be used to run this
+    function without an internet connection to `server`). Can later be used as the `load_dir` param of this function.
+    :return: Dictionary containing all JobData for every entry in `pipeline_jobs`
+    """
     async with aiohttp.ClientSession() as session:
         pipeline_promises = dict()
         for name, server in pipeline_jobs.items():
@@ -148,22 +173,28 @@ async def collect_job_data(pipeline_jobs: dict, load_dir, store_dir) -> dict:
     return dict(zip(pipeline_jobs.keys(), result))
 
 
-def calculate_status(pipeline: PipelineDict, job_data: dict):
-    def recursive_calculate_status(name: str, p: PipelineDict, serial=None) -> List[str]:
+def calculate_status(pipeline: PipelineDict, job_data: JobDataDict) -> None:
+    """
+    Add "status" and "downstream_status" values to each `pipeline` entry recursively.
+    :param pipeline: `PipelineDict` pipeline to update
+    :param job_data: Job data dict that whill be used to calculate "status" and "downstream_statu"
+    """
+
+    def recursive_calculate_status(name: JobName, p: PipelineDict, serial: Optional[str] = None) -> List[str]:
         if serial is None:
-            serial = job_data.get(name, dict()).get("serial", None)
+            serial = job_data.get(name, JobData.UNDEFINED).serial
         statuses = recurse_pipeline(p, recursive_calculate_status, serial)
         old_serial = False
         if "server" in p:
             if (
                 serial is not None
-                and job_data[name].get("serial", "0") is not None
-                and float(job_data[name].get("serial", "0")) < float(serial)
+                and job_data[name].serial is not None
+                and float(job_data[name].serial or 0) < float(serial)
             ):
-                status = ["NOT RUN"]
+                status = [JobStatus.NOT_RUN.value]
                 old_serial = True
             else:
-                status = [job_data[name]["status"]]
+                status = [job_data[name].status.value]
             p["status"] = status[0]
             if statuses is None:
                 statuses = []
@@ -190,13 +221,25 @@ def calculate_status(pipeline: PipelineDict, job_data: dict):
     s = recursive_calculate_status("", pipeline)
 
 
-def recurse_downstream(job_data: dict, load: str, store: str, jobs_cache_file: pathlib.Path):
-    def get_to_fetch(job_data_: dict) -> dict:
+def recurse_downstream(
+    job_data: JobDataDict, load: Optional[str], store: Optional[str], jobs_cache_file: pathlib.Path
+) -> None:
+    """
+    Recurse through `job_data` dict and fetch `JobData` for every listed "downstream" and add it to `job_data` dict
+    :param job_data: Dict of job data
+    :param load: Local directory path str from which to load cached Jenkins data (can be used to run this
+    function without an internet connection to `server`)
+    :param store: Local directory path str where to store cached Jenkins data (can be used to run this
+    function without an internet connection to `server`). Can later be used as the `load_dir` param of this function
+    :param jobs_cache_file:
+    """
+
+    def get_to_fetch(job_data_: JobDataDict) -> dict[JobName, ServerUrl]:
         to_fetch_ = dict()
         for k, v in job_data_.items():
-            for name in v.get("downstream", []):
+            for name in v.downstream:
                 if name not in job_data_:
-                    to_fetch_[name] = v["downstream"][name]
+                    to_fetch_[name] = v.downstream[name]
         return to_fetch_
 
     to_fetch_cache = dict()
@@ -240,7 +283,7 @@ def main(jobs_file, user_file, recurse, verbose, cache, store, load, auth):
     with open(jobs_file) as file:
         yaml_data = yaml.safe_load(file)
 
-    def get_job_data_() -> tuple[PipelineDict, dict]:
+    def get_job_data_() -> tuple[PipelineDict, JobDataDict]:
         start_time = time.process_time()
         job_data_ = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
         hash_ = hash_url(str(pathlib.Path(jobs_file).absolute().resolve()))

@@ -13,6 +13,7 @@ from dash import dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_tabulator import DashTabulator  # type: ignore
 
+from jenkins_query.job_data import JobData, JobDataDict
 from jenkins_query.pipeline_utils import get_downstream_serials, PipelineDict
 from jenkins_query.viz.dash.partial_callback import PartialCallback
 
@@ -22,10 +23,10 @@ class LeftPane(dbc.Col):
     class Callbacks:
         RefreshCallbackType = PartialCallback[Callable[..., Any]]
         refresh: RefreshCallbackType
-        RefreshDataCallbackType = Callable[[], tuple[PipelineDict, dict]]
+        RefreshDataCallbackType = Callable[[], tuple[PipelineDict, JobDataDict]]
         refresh_data: RefreshDataCallbackType
 
-    def __init__(self, app, pipeline_dict: PipelineDict, job_data: dict, callbacks: Callbacks):
+    def __init__(self, app, pipeline_dict: PipelineDict, job_data: JobDataDict, callbacks: Callbacks):
 
         self.setup_refresh_callbacks(app, callbacks.refresh)
         self.setup_intvl_refresh_callback(app, callbacks.refresh)
@@ -154,7 +155,7 @@ class LeftPane(dbc.Col):
             data: dict
             filtering: dict
 
-        table_cache: TableCache = dict()
+        table_cache: TableCache = dict()  # type: ignore
 
         @app.callback(
             Output("div-jobs-table", "children"),
@@ -194,7 +195,7 @@ class LeftPane(dbc.Col):
         )
 
     @classmethod
-    def generate_job_details(cls, pipeline_dict, job_data):
+    def generate_job_details(cls, pipeline_dict: PipelineDict, job_data: JobDataDict):
         job_details = []
         for name, data in pipeline_dict["children"].items():
             job_details += add_jobs_to_table(
@@ -391,7 +392,7 @@ class LeftPane(dbc.Col):
             """
 
 
-def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, indent=1) -> List[dict]:
+def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: JobDataDict, indent=1) -> List[dict]:
     details: dict = dict(
         _children=[],
     )
@@ -409,12 +410,12 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
         fields = job_data[name]
         details.update(
             dict(
-                name=fields["name"],
-                serial=fields["serial"],
-                build_num=fields["build_num"],
-                timestamp=fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None,
-                status=fields["status"],
-                url=fields["url"],
+                name=fields.name,
+                serial=fields.serial,
+                build_num=fields.build_num,
+                timestamp=fields.timestamp.strftime("%y-%m-%d %H:%M UTC") if fields.timestamp else None,
+                status=fields.status.value,
+                url=fields.url,
                 num_children=len(job_struct["children"]),
             )
         )
@@ -428,7 +429,9 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: dict, inden
         )
     details.update(
         dict(
-            _color=status_color_map[job_data.get(name, {}).get("status") or job_struct.get("downstream_status")],
+            _color=status_color_map[
+                job_data.get(name, JobData.UNDEFINED).status.value or job_struct.get("downstream_status")
+            ],
             _uuid=job_struct["uuid"],
         )
     )

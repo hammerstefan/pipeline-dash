@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import time
-from typing import List, Tuple, TypedDict
+from typing import List, Optional, Tuple, TypedDict
 
 import networkx  # type: ignore
 import networkx as nx
 from typing_extensions import NotRequired
 
+from jenkins_query.job_data import JobData, JobDataDict
 from jenkins_query.pipeline_utils import get_downstream_serials, PipelineDict
 
 
@@ -14,17 +15,17 @@ class NodeCustomData(TypedDict):
     downstream_status: str
     layer: int
     name: str
-    serial: str | list[str]
+    serial: Optional[str | list[str]]
     status: str
     url: str | None
     label: NotRequired[str]
     # downstream_serials: tuple[str, ...]
 
 
-def generate_nx(job_tree: PipelineDict, job_data: dict) -> networkx.DiGraph:
+def generate_nx(job_tree: PipelineDict, job_data: JobDataDict) -> networkx.DiGraph:
     def generate_custom_data(
         d: PipelineDict,
-        job_data: dict,
+        job_data: JobDataDict,
         depth: int,
     ) -> NodeCustomData:
         name = d["name"]
@@ -38,10 +39,8 @@ def generate_nx(job_tree: PipelineDict, job_data: dict) -> networkx.DiGraph:
             "layer": depth,
             "status": status,
             "downstream_status": d["downstream_status"],
-            "url": job_data[name]["url"] if name in job_data else None,
-            "serial": job_data[name]["serial"]
-            if name in job_data and "serial" in job_data[name] and job_data[name]["serial"]
-            else sorted(get_downstream_serials(d, job_data)),
+            "url": job_data[name].url if name in job_data else None,
+            "serial": job_data.get(name, JobData.UNDEFINED).serial or sorted(get_downstream_serials(d, job_data)),
             "name": name,
             # "downstream_serials": tuple(get_downstream_serials(d)),
         }

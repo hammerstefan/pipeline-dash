@@ -1,3 +1,5 @@
+# type: ignore
+# file currently unused
 from typing import List
 
 import dash_cytoscape as dcyto

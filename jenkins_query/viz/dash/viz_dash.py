@@ -3,18 +3,19 @@ import time
 from functools import wraps
 from importlib.resources import files
 from pprint import pprint
-from typing import Callable
+from typing import Callable, Optional
 
-import dash
+import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
-import plotly
+import plotly  # type: ignore
 from dash import ALL, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_extensions import enrich as de  # type: ignore
 from plotly import graph_objects as go  # type: ignore
 
 import jenkins_query.viz.dash.components.jobs_pipeline_fig
+from jenkins_query.job_data import JobData, JobDataDict
 from jenkins_query.pipeline_utils import find_pipeline, PipelineDict
 from . import components, network_graph
 from .components.job_pane import JobPane
@@ -34,7 +35,7 @@ def timeit(f):
     return wrapper
 
 
-def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
+def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]):
     pipeline_dict, job_data = get_job_data_fn()
     graph = generate_nx(pipeline_dict, job_data)
     app = de.DashProxy(
@@ -147,12 +148,12 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
         if sub_dict is None:
             raise PreventUpdate()
         job_name = sub_dict["name"]
-        job_data_ = job_data.get(job_name, {})
+        job_data_ = job_data.get(job_name, JobData.UNDEFINED)
         data = JobPane.Data(
             name=job_name,
-            serial=job_data_.get("serial"),
-            status=job_data_.get("status", "Unknown"),
-            url=job_data_.get("url"),
+            serial=job_data_.serial,
+            status=job_data_.status.value,
+            url=job_data_.url,
         )
         return [JobPane(data, id="offcanvas-job-pane")]
 
@@ -202,6 +203,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, dict]]):
     )
     def input_btn_diagram(e: dict, n_clicks):
         start_time = time.process_time()
+        uuid: Optional[str]
         if dash.ctx.triggered_id == "btn-diagram-root":
             uuid = pipeline_dict["uuid"]
         else:

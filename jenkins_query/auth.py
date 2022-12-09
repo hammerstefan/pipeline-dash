@@ -1,3 +1,5 @@
+# type: ignore
+# file currently unused
 import os
 import pickle
 from urllib.parse import urlparse

@@ -10,7 +10,7 @@ class JobPane(dbc.Offcanvas):
     @dataclass
     class Data:
         name: str
-        serial: Optional[str]
+        serial: Optional[str | list[str]]
         status: str
         url: Optional[str]
 
@@ -33,7 +33,9 @@ class JobPane(dbc.Offcanvas):
                                                         width="10ch",
                                                     ),
                                                 ),
-                                                data.serial,
+                                                ", ".join(data.serial)
+                                                if isinstance(data.serial, list)
+                                                else data.serial,
                                             ]
                                         ),
                                         html.Div(

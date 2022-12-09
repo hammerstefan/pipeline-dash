@@ -31,6 +31,12 @@ dash-extensions = "^0.1.7"
 
 
 
+[tool.poetry.group.devel.dependencies]
+types-pyyaml = "^6.0.12.2"
+types-click = "^7.1.8"
+mypy = "^0.991"
+docutils = "^0.19"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
