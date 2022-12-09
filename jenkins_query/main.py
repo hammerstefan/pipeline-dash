@@ -70,7 +70,11 @@ async def api(
     async with session.get(api_url) as req:
         d = await req.text()
     # todo handle error
-    json_data = json.loads(d)
+    try:
+        json_data = json.loads(d)
+    except json.decoder.JSONDecodeError:
+        print(f"WARNING: Failed to get {api_url}")
+        return {}
     if store_dir:
         possible_path = os.path.join(store_dir, file_name)
         with open(possible_path, "w") as f:

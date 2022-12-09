@@ -15,6 +15,7 @@ class JobStatus(Enum):
     SUCCESS = "SUCCESS"
     NOT_RUN = "NOT RUN"
     IN_PROGRESS = "In Progress"
+    ABORTED = "ABORTED"
     UNDEFINED: None = None
 
 

@@ -8,7 +8,7 @@ from typing import Any, Callable, Concatenate, ParamSpec, TypedDict, Union
 import mergedeep  # type: ignore
 from typing_extensions import NotRequired
 
-from jenkins_query.job_data import JobData
+from jenkins_query.job_data import JobData, JobDataDict
 
 
 class PipelineDict(TypedDict):
@@ -122,11 +122,11 @@ def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
     )
 
 
-def add_recursive_jobs_pipeline(pipeline: PipelineDict, job_data: dict) -> PipelineDict:
+def add_recursive_jobs_pipeline(pipeline: PipelineDict, job_data: JobDataDict) -> PipelineDict:
     def fill_pipeline(name: str, pipeline_: PipelineDict):
-        if "server" in pipeline_ and name in job_data and "downstream" in job_data[name]:
+        if "server" in pipeline_ and job_data.get(name, JobData.UNDEFINED).downstream:
             server = pipeline_["server"]
-            for k, v in job_data[name]["downstream"].items():
+            for k, v in job_data[name].downstream.items():
                 pipeline_["children"].setdefault(
                     k,
                     PipelineDict(
