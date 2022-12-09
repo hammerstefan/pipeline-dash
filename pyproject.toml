@@ -28,9 +28,6 @@ pyyaml = "^6.0"
 typing-extensions = "^4.4.0"
 dash-extensions = "^0.1.7"
 
-
-
-
 [tool.poetry.group.devel.dependencies]
 types-pyyaml = "^6.0.12.2"
 types-click = "^7.1.8"
