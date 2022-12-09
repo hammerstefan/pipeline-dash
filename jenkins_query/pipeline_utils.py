@@ -3,12 +3,14 @@ from __future__ import annotations
 import collections
 import itertools
 import uuid
+from pprint import pprint
 from typing import Any, Callable, Concatenate, ParamSpec, TypedDict, Union
 
 import mergedeep  # type: ignore
 from typing_extensions import NotRequired
 
 from jenkins_query.job_data import JobData, JobDataDict
+from jenkins_query.utils import timeit
 
 
 class PipelineDict(TypedDict):
@@ -77,6 +79,24 @@ def find_pipeline(pipeline: PipelineDict, select_fn: Callable[[str, PipelineDict
     if select_fn("", pipeline):
         return pipeline
     return _find("", pipeline)
+
+
+def find_pipeline_path(pipeline: PipelineDict, select_fn: Callable[[str, PipelineDict], bool]) -> list[str] | None:
+    """
+    Find a path of children from the root to the target selected by `select_fn`
+    """
+
+    def _find(name_: str, pipeline_: PipelineDict) -> list[str] | None:
+        if select_fn(name_, pipeline_):
+            return [name_]
+        rv = recurse_pipeline(pipeline_, _find)
+        assert rv is None or len(rv) == 1
+        return list(itertools.chain([name_], rv[0])) if rv is not None else None
+
+    if select_fn("", pipeline):
+        return []
+    path = _find("", pipeline)
+    return path[1:] if path else None
 
 
 def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
@@ -172,3 +192,18 @@ def get_downstream_serials(d: PipelineDict, job_data: dict) -> set[str]:
 
     serials = _collect(d["name"], d)
     return serials if serials else set()
+
+
+@timeit
+def translate_uuid(
+    uuid: str, old_pipeline: PipelineDict, new_pipeline: PipelineDict
+) -> tuple[str, PipelineDict] | None:
+    sub_dict: PipelineDict = new_pipeline
+    path = find_pipeline_path(old_pipeline, lambda _, p: p.get("uuid", "") == uuid)
+    if path is not None:
+        pprint(path)
+        for child in path:
+            sub_dict = sub_dict.get("children", {}).get(child, {})  # type: ignore
+        if sub_dict:
+            return sub_dict["uuid"], sub_dict
+    return None

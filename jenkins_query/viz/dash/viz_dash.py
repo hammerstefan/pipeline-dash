@@ -1,6 +1,5 @@
 import json
 import time
-from functools import wraps
 from importlib.resources import files
 from pprint import pprint
 from typing import Callable, Optional
@@ -8,6 +7,7 @@ from typing import Callable, Optional
 import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
+import diskcache
 import plotly  # type: ignore
 from dash import ALL, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
@@ -16,26 +16,17 @@ from plotly import graph_objects as go  # type: ignore
 
 import jenkins_query.viz.dash.components.jobs_pipeline_fig
 from jenkins_query.job_data import JobData, JobDataDict
-from jenkins_query.pipeline_utils import find_pipeline, PipelineDict
+from jenkins_query.pipeline_utils import find_pipeline, PipelineDict, translate_uuid
 from . import components, network_graph
 from .components.job_pane import JobPane
 from .network_graph import generate_nx
 from .partial_callback import PartialCallback
 
 
-def timeit(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        start_time = time.process_time()
-        ret = f(*args, **kwargs)
-        end_time = time.process_time()
-        print(f"{getattr(f, '__name__', None)} executed in {end_time - start_time} sec")
-        return ret
-
-    return wrapper
-
-
 def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]):
+
+    cache = diskcache.Cache("./.diskcache")  # type: ignore
+    background_callback_manager = dash.DiskcacheManager(cache)
     pipeline_dict, job_data = get_job_data_fn()
     graph = generate_nx(pipeline_dict, job_data)
     app = de.DashProxy(
@@ -57,25 +48,30 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
     )
     dash_bootstrap_templates.load_figure_template("darkly")
 
-    def callback_refresh(figure_root) -> tuple[go.Figure, list[dict]]:
+    def callback_refresh(figure_root) -> tuple[go.Figure, list[dict], str]:
         nonlocal pipeline_dict, job_data
         # TODO: don't regen the world just to refresh some data from Jenkins
-        print("CALLBACK")
-        pipeline_dict, job_data = get_job_data_fn()
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == figure_root)
-        if sub_dict is None:
-            sub_dict = pipeline_dict
-        graph_ = generate_nx(sub_dict, job_data)
+        print(f"CALLBACK {figure_root}")
+        pipeline_dict_new, job_data_new = get_job_data_fn()
+        if rv := translate_uuid(figure_root, pipeline_dict, pipeline_dict_new):
+            figure_root, sub_dict = rv
+            print(f"Sub dict found: True")
+        else:
+            sub_dict = pipeline_dict_new
+            print(f"Sub dict found: False")
+        graph_ = generate_nx(sub_dict, job_data_new)
         fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
-        table_data = components.LeftPane.generate_job_details(pipeline_dict, job_data)
-        return fig_, table_data
+        table_data = components.LeftPane.generate_job_details(pipeline_dict_new, job_data_new)
+        pipeline_dict, job_data = pipeline_dict_new, job_data_new  # update the class pipeline/data cache
+        return fig_, table_data, figure_root
 
     callback: components.LeftPane.Callbacks.RefreshCallbackType = PartialCallback(
         outputs=[
             Output("pipeline-graph", "figure"),
             Output("jobs_table", "data"),
+            Output("store-figure-root", "data"),
         ],
-        inputs=[Input("store-figure-root", "data")],
+        inputs=[State("store-figure-root", "data")],
         function=callback_refresh,
     )
 
@@ -83,7 +79,11 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         app,
         pipeline_dict,
         job_data,
-        callbacks=components.LeftPane.Callbacks(refresh=callback, refresh_data=get_job_data_fn),
+        callbacks=components.LeftPane.Callbacks(
+            refresh=callback,
+            refresh_data=get_job_data_fn,
+            callback_manager=background_callback_manager,
+        ),
     )
 
     layout_graph, fig = components.graph_col.generate(graph)
@@ -199,6 +199,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         ],
         Input("el-diagram-click", "event"),
         Input("btn-diagram-root", "n_clicks"),
+        background=True,
+        manager=background_callback_manager,
         prevent_initial_call=True,
     )
     def input_btn_diagram(e: dict, n_clicks):
@@ -210,6 +212,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
             uuid = e.get("detail")
         if uuid is None:
             raise PreventUpdate
+        print(f"Callback: Btn Diagram {uuid}")
         sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == uuid)
         nonlocal fig
         if sub_dict is None:
@@ -219,6 +222,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         print(f"Generated network in {end_time - start_time} sec")
         fig = components.jobs_pipeline_fig.generate_plot_figure(graph)
         return fig, uuid
+        # return uuid
 
     @app.callback(
         [
@@ -259,4 +263,5 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         figure["layout"]["template"] = template
         return dbc.themes.BOOTSTRAP, "/assets/tabulator_simple.min.css", figure
 
-    app.run_server(debug=True)
+    # app.run_server(debug=True)
+    app.run()

@@ -21,6 +21,7 @@ from jenkins_query.viz.dash.partial_callback import PartialCallback
 class LeftPane(dbc.Col):
     @dataclass
     class Callbacks:
+        callback_manager: dash.DiskcacheManager
         RefreshCallbackType = PartialCallback[Callable[..., Any]]
         refresh: RefreshCallbackType
         RefreshDataCallbackType = Callable[[], tuple[PipelineDict, JobDataDict]]
@@ -28,8 +29,8 @@ class LeftPane(dbc.Col):
 
     def __init__(self, app, pipeline_dict: PipelineDict, job_data: JobDataDict, callbacks: Callbacks):
 
-        self.setup_refresh_callbacks(app, callbacks.refresh)
-        self.setup_intvl_refresh_callback(app, callbacks.refresh)
+        self.setup_refresh_callbacks(app, callbacks.refresh, callbacks.callback_manager)
+        self.setup_intvl_refresh_callback(app, callbacks.refresh, callbacks.callback_manager)
         # self.setup_expand_all_callback(app)
 
         super().__init__(
@@ -206,7 +207,9 @@ class LeftPane(dbc.Col):
         return job_details
 
     @classmethod
-    def setup_refresh_callbacks(cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType) -> None:
+    def setup_refresh_callbacks(
+        cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType, cb_manager: dash.DiskcacheManager
+    ) -> None:
         @app.callback(
             Output("intvl-refresh", "disabled"),
             Output("intvl-refresh", "interval"),
@@ -221,6 +224,8 @@ class LeftPane(dbc.Col):
             Output("lbl-last-update", "children"),
             Input("btn-refresh-now", "n_clicks"),
             *callback.inputs,
+            background=True,
+            manager=cb_manager,
             prevent_initial_call=True,
         )
         def refresh_now(n_clicks: int, *args, **kwargs) -> Any:
@@ -228,13 +233,16 @@ class LeftPane(dbc.Col):
             return *callback.function(*args, **kwargs), current_time
 
     @classmethod
-    def setup_intvl_refresh_callback(cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType) -> None:
+    def setup_intvl_refresh_callback(
+        cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType, cb_manager: dash.DiskcacheManager
+    ) -> None:
         @app.callback(
-            output=callback.outputs
-            + [
-                Output("lbl-last-update", "children"),
-            ],
-            inputs=callback.inputs + [Input("intvl-refresh", "n_intervals")],
+            *callback.outputs,
+            Output("lbl-last-update", "children"),
+            Input("intvl-refresh", "n_intervals"),
+            *callback.inputs,
+            background=True,
+            manager=cb_manager,
             prevent_initial_call=True,
         )
         def intvl_refresh_trigger(nintervals, *args, **kwargs):

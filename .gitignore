@@ -1,5 +1,6 @@
 config/user.yaml
-.cookies
-.idea/
 .cache/
+.cookies
+.diskcache
+.idea/
 __pycache__
