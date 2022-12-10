@@ -3,7 +3,6 @@ from __future__ import annotations
 import collections
 import itertools
 import uuid
-from pprint import pprint
 from typing import Any, Callable, Concatenate, ParamSpec, TypedDict, Union
 
 import mergedeep  # type: ignore
@@ -201,7 +200,7 @@ def translate_uuid(
     sub_dict: PipelineDict = new_pipeline
     path = find_pipeline_path(old_pipeline, lambda _, p: p.get("uuid", "") == uuid)
     if path is not None:
-        pprint(path)
+        # pprint(path)
         for child in path:
             sub_dict = sub_dict.get("children", {}).get(child, {})  # type: ignore
         if sub_dict:

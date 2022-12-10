@@ -1,7 +1,7 @@
 import json
 import time
+from dataclasses import asdict
 from importlib.resources import files
-from pprint import pprint
 from typing import Callable, Optional
 
 import dash  # type: ignore
@@ -21,6 +21,14 @@ from . import components, network_graph
 from .components.job_pane import JobPane
 from .network_graph import generate_nx
 from .partial_callback import PartialCallback
+
+
+class Ids:
+    class StoreIds:
+        figure_root = "store-figure-root"
+        job_pane_data = "store-job-pane-date"
+
+    stores = StoreIds
 
 
 def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]):
@@ -69,9 +77,9 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         outputs=[
             Output("pipeline-graph", "figure"),
             Output("jobs_table", "data"),
-            Output("store-figure-root", "data"),
+            Output(Ids.stores.figure_root, "data"),
         ],
-        inputs=[State("store-figure-root", "data")],
+        inputs=[State(Ids.stores.figure_root, "data")],
         function=callback_refresh,
     )
 
@@ -86,7 +94,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         ),
     )
 
-    layout_graph, fig = components.graph_col.generate(graph)
+    layout_graph, fig = components.graph_col.generate(app, graph)
 
     def layout_container() -> dbc.Container:
         return dbc.Container(
@@ -106,7 +114,9 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
                     class_name="g-2",
                 ),
                 html.Div(id="hidden-div", hidden=True),
-                dcc.Store(id="store-figure-root"),
+                dcc.Store(id=Ids.stores.figure_root),
+                dcc.Store(id=Ids.stores.job_pane_data),
+                dcc.Interval(id="intvl-job-pane-diagram-click", disabled=True, max_intervals=1, interval=200),
             ],
             fluid=True,
             id="dbc",
@@ -116,31 +126,34 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
     app.layout = layout_container()
 
     @app.callback(
-        Output("row-job-pane", "children"),
+        *components.GraphTooltip.callbacks.display.outputs,
         Input("pipeline-graph", "clickData"),
+        *components.GraphTooltip.callbacks.display.inputs,
         prevent_initial_call=True,
     )
-    def show_job_pane(click_data) -> list:
-        pprint(click_data)
+    def cb_pipeline_graph_click(click_data, *args, **kwargs) -> tuple:
+        # pprint(click_data)
         points: list[dict] = click_data.get("points", [])
         if not points:
             raise PreventUpdate()
         customdata: network_graph.NodeCustomData = points[0].get("customdata", {})
-        data = JobPane.Data(
+        data = components.GraphTooltip.Data(
             name=customdata.get("name", "NO NAME"),
             serial=customdata.get("serial"),
             status=customdata.get("status", "Unknown"),
             url=customdata.get("url"),
+            uuid=customdata.get("uuid", "UNKNOWN"),
         )
+        bbox = points[0]["bbox"]
 
-        return [JobPane(data, id="offcanvas-job-pane")]
+        return (*components.GraphTooltip.callbacks.display.function(bbox, data, *args, **kwargs),)
 
     @app.callback(
-        Output("row-job-pane", "children"),
+        Output(Ids.stores.job_pane_data, "data"),
         Input("el-info-click", "event"),
         prevent_initial_call=True,
     )
-    def input_job_info_click(e: dict):
+    def cb_input_job_info_click(e: dict):
         uuid = e.get("detail")
         if uuid is None:
             raise PreventUpdate
@@ -154,8 +167,18 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
             serial=job_data_.serial,
             status=job_data_.status.value,
             url=job_data_.url,
+            uuid=sub_dict["uuid"],
         )
-        return [JobPane(data, id="offcanvas-job-pane")]
+        return asdict(data)
+
+    @app.callback(
+        Output("row-job-pane", "children"),
+        Input(Ids.stores.job_pane_data, "data"),
+        prevent_initial_call=True,
+    )
+    def cb_store_job_pane_data_updated(data):
+        data = JobPane.Data(**data)
+        return [JobPane(app, data)]
 
     @app.callback(
         Output("pipeline-graph", "figure"),
@@ -193,18 +216,12 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
     setup_click_btn_left_pane_expand()
 
     @app.callback(
-        [
-            Output("pipeline-graph", "figure"),
-            Output("store-figure-root", "data"),
-        ],
+        Output(Ids.stores.figure_root, "data"),
         Input("el-diagram-click", "event"),
         Input("btn-diagram-root", "n_clicks"),
-        background=True,
-        manager=background_callback_manager,
         prevent_initial_call=True,
     )
     def input_btn_diagram(e: dict, n_clicks):
-        start_time = time.process_time()
         uuid: Optional[str]
         if dash.ctx.triggered_id == "btn-diagram-root":
             uuid = pipeline_dict["uuid"]
@@ -213,7 +230,18 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         if uuid is None:
             raise PreventUpdate
         print(f"Callback: Btn Diagram {uuid}")
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == uuid)
+        return uuid
+
+    @app.callback(
+        Output("pipeline-graph", "figure"),
+        Input(Ids.stores.figure_root, "data"),
+        background=True,
+        manager=background_callback_manager,
+        prevent_initial_call=True,
+    )
+    def handle_new_figure_root(figure_root):
+        start_time = time.process_time()
+        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == figure_root)
         nonlocal fig
         if sub_dict is None:
             raise PreventUpdate
@@ -221,8 +249,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         end_time = time.process_time()
         print(f"Generated network in {end_time - start_time} sec")
         fig = components.jobs_pipeline_fig.generate_plot_figure(graph)
-        return fig, uuid
-        # return uuid
+        return fig
 
     @app.callback(
         [
@@ -264,4 +291,6 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         return dbc.themes.BOOTSTRAP, "/assets/tabulator_simple.min.css", figure
 
     # app.run_server(debug=True)
-    app.run()
+    app.run(
+        dev_tools_hot_reload=True,
+    )

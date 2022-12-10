@@ -19,6 +19,7 @@ class NodeCustomData(TypedDict):
     status: str
     url: str | None
     label: NotRequired[str]
+    uuid: str
     # downstream_serials: tuple[str, ...]
 
 
@@ -42,6 +43,7 @@ def generate_nx(job_tree: PipelineDict, job_data: JobDataDict) -> networkx.DiGra
             "url": job_data[name].url if name in job_data else None,
             "serial": job_data.get(name, JobData.UNDEFINED).serial or sorted(get_downstream_serials(d, job_data)),
             "name": name,
+            "uuid": d["uuid"],
             # "downstream_serials": tuple(get_downstream_serials(d)),
         }
         if label := d.get("label"):
