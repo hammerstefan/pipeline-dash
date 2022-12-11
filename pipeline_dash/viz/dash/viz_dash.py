@@ -1,6 +1,6 @@
 import json
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from importlib.resources import files
 from typing import Callable, Optional
 
@@ -14,9 +14,9 @@ from dash.exceptions import PreventUpdate  # type: ignore
 from dash_extensions import enrich as de  # type: ignore
 from plotly import graph_objects as go  # type: ignore
 
-import jenkins_query.viz.dash.components.jobs_pipeline_fig
-from jenkins_query.job_data import JobData, JobDataDict
-from jenkins_query.pipeline_utils import find_pipeline, PipelineDict, translate_uuid
+import pipeline_dash.viz.dash.components.jobs_pipeline_fig
+from pipeline_dash.job_data import JobData, JobDataDict
+from pipeline_dash.pipeline_utils import find_pipeline, PipelineDict, translate_uuid
 from . import components, network_graph
 from .components.job_pane import JobPane
 from .network_graph import generate_nx
@@ -31,7 +31,12 @@ class Ids:
     stores = StoreIds
 
 
-def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]):
+@dataclass
+class Config:
+    debug: bool = False
+
+
+def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]], config: Config):
 
     cache = diskcache.Cache("./.diskcache")  # type: ignore
     background_callback_manager = dash.DiskcacheManager(cache)
@@ -290,7 +295,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         figure["layout"]["template"] = template
         return dbc.themes.BOOTSTRAP, "/assets/tabulator_simple.min.css", figure
 
-    # app.run_server(debug=True)
-    app.run(
-        dev_tools_hot_reload=True,
-    )
+    app.run_server(debug=config.debug)
+    # app.run(
+    #     dev_tools_hot_reload=True,
+    # )

@@ -13,9 +13,9 @@ from dash import dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_tabulator import DashTabulator  # type: ignore
 
-from jenkins_query.job_data import JobData, JobDataDict
-from jenkins_query.pipeline_utils import get_downstream_serials, PipelineDict
-from jenkins_query.viz.dash.partial_callback import PartialCallback
+from pipeline_dash.job_data import JobData, JobDataDict
+from pipeline_dash.pipeline_utils import get_downstream_serials, PipelineDict
+from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
 
 class LeftPane(dbc.Col):
@@ -37,7 +37,7 @@ class LeftPane(dbc.Col):
             (
                 html.Header(
                     [
-                        html.H3("Jenkins Job Table"),
+                        html.H3("Pipeline Job Table"),
                         dbc.Button(
                             html.I(className="bi-arrows-angle-expand"),
                             id="btn-left-pane-expand",

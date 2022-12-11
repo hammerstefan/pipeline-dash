@@ -1,13 +1,14 @@
 [tool.poetry]
-name = "jenkins-query"
-version = "0.1.0"
+name = "pipeline-dash"
+version = "0.2.0"
 description = ""
 authors = ["Stefan Hammer <hammerstefan@gmail.com>"]
 readme = "README.md"
-packages = [{include = "jenkins_query"}]
+packages = [{include = "pipeline_dash"}]
+license = "GPL-3.0-or-later"
 
 [tool.poetry.scripts]
-dash = "jenkins_query:main"
+cli = "pipeline_dash:main.cli"
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -30,6 +31,7 @@ dash-tabulator = "^0.4.2"
 pyyaml = "^6.0"
 typing-extensions = "^4.4.0"
 dash-extensions = "^0.1.7"
+rich-click = "^1.6.0"
 
 [tool.poetry.group.devel.dependencies]
 types-pyyaml = "^6.0.12.2"

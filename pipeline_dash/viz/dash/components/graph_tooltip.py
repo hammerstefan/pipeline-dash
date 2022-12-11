@@ -8,8 +8,8 @@ import dash_bootstrap_components as dbc  # type: ignore
 from dash import dash, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 
-from jenkins_query.viz.dash import components, viz_dash
-from jenkins_query.viz.dash.partial_callback import PartialCallback
+from pipeline_dash.viz.dash import components, viz_dash
+from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
 StyleType = dict[str, Any]
 DataStoreType = dict[str, Any]

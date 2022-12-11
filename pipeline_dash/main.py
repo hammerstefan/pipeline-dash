@@ -15,20 +15,22 @@ from typing import cast, List, Optional
 from urllib.parse import urlparse, urlsplit
 
 import aiohttp
-import click as click
+import rich_click as click
 import mergedeep  # type: ignore
 import yaml
 
-from jenkins_query.job_data import JobData, JobDataDict, JobStatus
-from jenkins_query.pipeline_utils import (
+from pipeline_dash.job_data import JobData, JobDataDict, JobStatus
+from pipeline_dash.pipeline_utils import (
     add_recursive_jobs_pipeline,
     collect_jobs_dict,
     collect_jobs_pipeline,
     PipelineDict,
     recurse_pipeline,
 )
-from jenkins_query.viz.dash.viz_dash import display_dash
+from pipeline_dash.viz.dash import viz_dash
+from pipeline_dash.viz.dash.viz_dash import display_dash
 
+click.rich_click.MAX_WIDTH = 120
 verbose = False
 
 
@@ -270,16 +272,38 @@ def cli():
     pass
 
 
+# noinspection PyShadowingBuiltins
+@cli.command()
+@click.argument("subcommand", required=False)
+@click.pass_context
+def help(ctx, subcommand):
+    if sc := cli.get_command(ctx, subcommand):
+        click.echo(sc.get_help(ctx))
+    else:
+        click.echo(cli.get_help(ctx))
+
+
 @cli.command()
 @click.argument("jobs_file")
+@click.option("--recurse", is_flag=True, help="BETA: Recursively fetch job data for EVERY job listed")
+@click.option("--verbose", is_flag=True, help="Show verbose output")
+@click.option("--debug", is_flag=True, help="Turn on debug features (verbose logging, inspection features, etc)")
+@click.option(
+    "--cache",
+    help="Directory to cache data",
+    default=f"{pathlib.Path(__file__).parent.resolve()}/.cache",
+    show_default=True,
+)
+@click.option("--store", help="EXPERIMENTAL: Directory to store Jenkins JSON data")
+@click.option("--load", help="EXPERIMENTAL: Directory to load Jenkins JSON data")
+@click.option(
+    "--auth/--no-auth",
+    default=False,
+    help="EXPERIMENTAL: Perform login.ubuntu.com SSO authentication",
+    show_default=True,
+)
 @click.option("--user-file", help="User file if server authentication is required")
-@click.option("--recurse", is_flag=True, help="Recursively fetch job data", default=False)
-@click.option("--verbose", default=False)
-@click.option("--cache", help="Directory to cache data", default=f"{pathlib.Path(__file__).parent.resolve()}/.cache")
-@click.option("--store", help="Directory to store Jenkins JSON data")
-@click.option("--load", help="Directory to load Jenkins JSON data")
-@click.option("--auth/--no-auth", default=True, help="Perform login.ubuntu.com SSO authentication")
-def main(jobs_file, user_file, recurse, verbose, cache, store, load, auth):
+def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug):
     if verbose:
         do_verbose()
     if store:
@@ -307,7 +331,7 @@ def main(jobs_file, user_file, recurse, verbose, cache, store, load, auth):
     # display_rich_table(pipeline_dict, job_data, load, store)
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
-    display_dash(get_job_data_)
+    display_dash(get_job_data_, viz_dash.Config(debug=debug))
 
 
 if __name__ == "__main__":

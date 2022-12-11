@@ -8,8 +8,8 @@ from dash import dcc, html, Input  # type: ignore
 from dash.development.base_component import Component  # type: ignore
 from plotly import graph_objects as go  # type: ignore
 
-from jenkins_query.viz.dash import components
-from jenkins_query.viz.dash.components.jobs_pipeline_fig import generate_plot_figure
+from pipeline_dash.viz.dash import components
+from pipeline_dash.viz.dash.components.jobs_pipeline_fig import generate_plot_figure
 
 
 class Ids:

@@ -7,8 +7,8 @@ import networkx  # type: ignore
 import networkx as nx
 from typing_extensions import NotRequired
 
-from jenkins_query.job_data import JobData, JobDataDict
-from jenkins_query.pipeline_utils import get_downstream_serials, PipelineDict
+from pipeline_dash.job_data import JobData, JobDataDict
+from pipeline_dash.pipeline_utils import get_downstream_serials, PipelineDict
 
 
 class NodeCustomData(TypedDict):

@@ -14,7 +14,7 @@ import dash_bootstrap_components as dbc  # type: ignore
 from dash.dcc import Store  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 
-from jenkins_query.viz.dash.partial_callback import PartialCallback
+from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
 
 class ButtonSplitOption(html.Div):

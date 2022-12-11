@@ -8,8 +8,8 @@ from typing import Any, Callable, Concatenate, ParamSpec, TypedDict, Union
 import mergedeep  # type: ignore
 from typing_extensions import NotRequired
 
-from jenkins_query.job_data import JobData, JobDataDict
-from jenkins_query.utils import timeit
+from pipeline_dash.job_data import JobData, JobDataDict
+from pipeline_dash.utils import timeit
 
 
 class PipelineDict(TypedDict):
