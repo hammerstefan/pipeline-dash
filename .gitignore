@@ -2,5 +2,6 @@ config/user.yaml
 .cache/
 .cookies
 .diskcache
+.dmypy.json
 .idea/
 __pycache__

@@ -6,6 +6,9 @@ authors = ["Stefan Hammer <hammerstefan@gmail.com>"]
 readme = "README.md"
 packages = [{include = "jenkins_query"}]
 
+[tool.poetry.scripts]
+dash = "jenkins_query:main"
+
 [tool.poetry.dependencies]
 python = "^3.10"
 click = "^8.1.3"
