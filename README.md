@@ -44,10 +44,20 @@ The easiest way to run `pipeline-dash` is to use `poetry` to install and run the
 git clone <REPO_URL>
 cd pipeline-dash
 poetry install
-poetry run cli dash [OPTIONS] <JOB_FILE>
+poetry run pd dash [OPTIONS] <JOB_FILE>
 ```
 
 **Note**: `poetry install` only installs into a virtualenv, this will not affect your system.
+
+The `pd dash` command will launch a local server on port 8050 that can be used to view the dashboard. The console 
+stdout will show the URL to open in the browser:
+```bash
+$ poetry run pd dash ../pipeline-dash-configs/test.yaml 
+Loaded 62 jobs in 0.257301361 sec
+Generated network in 0.0005589190000000466 sec
+Rendered graph in 0.13890825899999992 sec
+Dash is running on http://127.0.0.1:8050/
+```
 
 
 ### CLI Usage
@@ -134,6 +144,20 @@ On the right you can view the subway map of the pipelines (or selected subtree)
 Hover over a node to view brief information
 
 ![Diagram node hover disaplys brief information](assets/man_diagram_hover.png)
+
+The node and line color coding is as following:
+
+| color | status   |
+|-------|----------|
+| red   | failure  |
+| amber | unstable |
+| green | success  |
+| cyan  | running  |
+| gray  | not run  |
+
+The line color is an aggregate of the downstream pipeline job statuses. This is used to communicate the entire
+pipeline's health at a glance.
+
 
 Click on a node to bring up further options:
 * Open selected job's URL in a new tab
