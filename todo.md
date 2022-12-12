@@ -30,3 +30,4 @@
   * especially around callbacks
 * actual error handling on data import
 * actual error handling when parsing YAML
+* docstrings on the key classes / functions
