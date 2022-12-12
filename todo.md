@@ -28,3 +28,5 @@
 * renable textual output
 * add proper logging
   * especially around callbacks
+* actual error handling on data import
+* actual error handling when parsing YAML

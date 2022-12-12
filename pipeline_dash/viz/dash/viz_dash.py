@@ -7,7 +7,7 @@ from typing import Callable, Optional
 import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
-import diskcache
+import diskcache  # type: ignore
 import plotly  # type: ignore
 from dash import ALL, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
