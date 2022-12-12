@@ -1,1 +1,1 @@
-pipeline_dash/viz/dash/assets/*.css linguist-detectable=false
+*.css linguist-detectable=false
