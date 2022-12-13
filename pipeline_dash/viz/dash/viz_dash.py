@@ -191,7 +191,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         State("pipeline-graph", "figure"),
         prevent_initial_call=True,
     )
-    def graph_relayout(data, figure):
+    def cb_graph_relayout(data, figure):
         if not data:
             raise PreventUpdate
         delta = data.get("yaxis.range[1]", 0) - data.get("yaxis.range[0]", 0)
@@ -204,7 +204,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         components.jobs_pipeline_fig.resize_fig_data_from_y_delta(figure, delta)
         return figure
 
-    def setup_click_btn_left_pane_expand():
+    def setup_cb_btn_left_pane_expand_click():
         this_toggle = False
 
         @app.callback(
@@ -212,13 +212,13 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
             de.Trigger("btn-left-pane-expand", "n_clicks"),
             prevent_initial_call=True,
         )
-        def click_btn_left_pane_expand():
+        def cb_btn_left_pane_expand_click():
             nonlocal this_toggle
             this_toggle = not this_toggle
             width = "100vw" if this_toggle else None
             return dict(width=width)
 
-    setup_click_btn_left_pane_expand()
+    setup_cb_btn_left_pane_expand_click()
 
     @app.callback(
         Output(Ids.stores.figure_root, "data"),
@@ -226,7 +226,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         Input("btn-diagram-root", "n_clicks"),
         prevent_initial_call=True,
     )
-    def input_btn_diagram(e: dict, n_clicks):
+    def cb_btn_diagram_click(e: dict, n_clicks):
         uuid: Optional[str]
         if dash.ctx.triggered_id == "btn-diagram-root":
             uuid = pipeline_dict["uuid"]
@@ -244,7 +244,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         manager=background_callback_manager,
         prevent_initial_call=True,
     )
-    def handle_new_figure_root(figure_root):
+    def cb_handle_new_figure_root(figure_root):
         start_time = time.process_time()
         sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == figure_root)
         nonlocal fig
@@ -265,7 +265,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         State("pipeline-graph", "figure"),
         prevent_initial_call=True,
     )
-    def btn_responsive_graph(responsive, figure):
+    def cb_btn_responsive_graph_toggle(responsive, figure):
         if not responsive:
             components.jobs_pipeline_fig.resize_fig_data_from_scale(figure, 0.8)
         else:
@@ -296,6 +296,3 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         return dbc.themes.BOOTSTRAP, "/assets/tabulator_simple.min.css", figure
 
     app.run_server(debug=config.debug)
-    # app.run(
-    #     dev_tools_hot_reload=True,
-    # )

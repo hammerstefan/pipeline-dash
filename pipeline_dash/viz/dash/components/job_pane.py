@@ -39,8 +39,6 @@ class JobPane(dbc.Offcanvas):
             **kwargs,
         )
 
-        # self.setup_callback_button_diagram(app, data)
-
     @classmethod
     def _layout_data(cls, data: Data) -> dbc.Row:
         return dbc.Row(
@@ -79,12 +77,10 @@ class JobPane(dbc.Offcanvas):
                 ),
                 dbc.Col(
                     [
-                        dbc.Button(html.I(className="bi-diagram-2"), id=cls.ids.button_diagram),
+                        # html.A("View Subgraph", id=cls.ids.button_diagram, href="#"),
+                        # dbc.Button(html.I(className="bi-diagram-2"), id=cls.ids.button_diagram),
                     ]
                 ),
             ],
             align="start",
         )
-
-    def setup_callback_button_diagram(self, app, data):
-        print("setup: callback_button_diagram")
