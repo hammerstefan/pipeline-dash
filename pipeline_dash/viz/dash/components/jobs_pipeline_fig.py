@@ -32,6 +32,11 @@ def do_layout(g: networkx.DiGraph) -> int:
     return ny
 
 
+def scale_font_size(scale: float) -> float:
+    # print(f"Font size scale: {scale}")
+    return min(max(int(14 * scale), 6), 20)
+
+
 def size_traces(
     scale: float, node_trace: go.Scatter, edge_traces: Dict[str, go.Scatter], annotations: List[go.layout.Annotation]
 ):
@@ -42,7 +47,7 @@ def size_traces(
         an.xshift *= scale if scale < 0 else pow(scale, 1.2)
         an.yshift = 5
         # an.yshift *= max(scale, 2.0)
-        an.font.size = min(max(int(an.font.size * scale), 6), 24)
+        an.font.size = scale_font_size(scale)
 
 
 def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
@@ -137,7 +142,7 @@ def get_node_labels(graph, node_text_dict):
             showarrow=False,
             yanchor="top",
             xanchor="left",
-            textangle=25,
+            textangle=30,
             opacity=0.75,
         )
         for n in graph.nodes()
@@ -244,6 +249,7 @@ def generate_edge_traces(graph):
 
 
 def resize_fig_data_from_scale(fig: dict, scale: float):
+    print(f"Figure scale: {scale}")
     meta = fig["layout"]["meta"]
     default_node_size = meta["default_node_size"]
     default_edge_width = meta["default_edge_width"]
@@ -258,7 +264,7 @@ def resize_fig_data_from_scale(fig: dict, scale: float):
         an["xshift"] = 5 * (scale if scale < 0 else pow(scale, 1.2))
         an["yshift"] = 5
         # an.yshift *= max(scale, 2.0)
-        an["font"]["size"] = min(max(int(14 * scale), 6), 24)
+        an["font"]["size"] = scale_font_size(scale)
 
     fig["layout"]["uirevision"] = str(uuid.uuid4())
 
