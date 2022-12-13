@@ -223,12 +223,12 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
     @app.callback(
         Output(Ids.stores.figure_root, "data"),
         Input("el-diagram-click", "event"),
-        Input("btn-diagram-root", "n_clicks"),
+        Input(components.LeftPane.ids.buttons.diagram_root, "n_clicks"),
         prevent_initial_call=True,
     )
     def cb_btn_diagram_click(e: dict, n_clicks):
         uuid: Optional[str]
-        if dash.ctx.triggered_id == "btn-diagram-root":
+        if dash.ctx.triggered_id == components.LeftPane.ids.buttons.diagram_root:
             uuid = pipeline_dict["uuid"]
         else:
             uuid = e.get("detail")
@@ -261,7 +261,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
             Output("pipeline-graph", "figure"),
             Output("pipeline-graph", "responsive"),
         ],
-        Input("cb-responsive-graph", "value"),
+        Input(components.LeftPane.ids.checkboxes.responsive_graph, "value"),
         State("pipeline-graph", "figure"),
         prevent_initial_call=True,
     )
@@ -276,7 +276,7 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         Output("link-stylesheet", "href"),
         Output("link-tabulator-stylesheet", "href"),
         Output("pipeline-graph", "figure"),
-        Input("cb-dark-mode", "value"),
+        Input(components.LeftPane.ids.checkboxes.dark_mode, "value"),
         State("pipeline-graph", "figure"),
     )
     def cb_dark_mode(dark, figure):

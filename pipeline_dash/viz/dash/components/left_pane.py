@@ -19,6 +19,33 @@ from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
 
 class LeftPane(dbc.Col):
+    class Ids:
+        class _ButtonIds:
+            expand = "btn-left-pane-expand"
+            refresh = "btn-refresh-now"
+            diagram_root = "btn-diagram-root"
+            expand_all = "btn-expand-all"
+
+        class _SelectIds:
+            job_config = "sel-left-pane-job-config"
+            refresh_interval = "sel-left-pane-refresh-intvl"
+
+        class _CheckboxIds:
+            refresh = "cb-enable-refresh"
+            responsive_graph = "cb-responsive-graph"
+            dark_mode = "cb-dark-mode"
+
+        class _IntervalIds:
+            refresh = "intvl-refresh"
+            expand_all = "intvl-expand-all"
+
+        buttons = _ButtonIds
+        selects = _SelectIds
+        checkboxes = _CheckboxIds
+        intervals = _IntervalIds
+
+    ids = Ids
+
     @dataclass
     class Callbacks:
         callback_manager: dash.DiskcacheManager
@@ -40,7 +67,7 @@ class LeftPane(dbc.Col):
                         html.H3("Pipeline Job Table"),
                         dbc.Button(
                             html.I(className="bi-arrows-angle-expand"),
-                            id="btn-left-pane-expand",
+                            id=self.ids.buttons.expand,
                             color="light",
                         ),
                     ],
@@ -48,9 +75,13 @@ class LeftPane(dbc.Col):
                 ),
                 dbc.InputGroup(
                     [
-                        dbc.InputGroupText(dbc.Label("Refresh every", align="end", class_name="my-0")),
+                        dbc.InputGroupText(
+                            dbc.Label("Refresh every", align="end", class_name="my-0"),
+                            class_name="flex-row-reverse",
+                            style={"width": "14ch"},
+                        ),
                         dbc.Select(
-                            id="sel-refresh-interval",
+                            id=self.ids.selects.refresh_interval,
                             options=[
                                 dict(label="1 min", value=60 * 1000),
                                 dict(label="5 min", value=5 * 60 * 1000),
@@ -60,11 +91,11 @@ class LeftPane(dbc.Col):
                             persistence=True,
                         ),
                         dbc.InputGroupText(
-                            dbc.Switch(id="cb-enable-refresh", persistence=True),
+                            dbc.Switch(id=self.ids.checkboxes.refresh, persistence=True),
                         ),
                         dbc.Button(
                             html.I(className="bi-arrow-clockwise"),
-                            id="btn-refresh-now",
+                            id=self.ids.buttons.refresh,
                             className="btn btn-primary",
                         ),
                     ],
@@ -73,14 +104,14 @@ class LeftPane(dbc.Col):
                     [
                         html.Label(f"Last refresh:", className="me-1"),
                         html.Label(datetime.datetime.now().time().isoformat("seconds"), id="lbl-last-update"),
-                        dcc.Interval(id="intvl-refresh", disabled=True),
+                        dcc.Interval(id=self.ids.intervals.refresh, disabled=True),
                     ],
                 ),
                 html.Div(
                     [
                         dbc.Switch(
                             label="Responsive",
-                            id="cb-responsive-graph",
+                            id=self.ids.checkboxes.responsive_graph,
                             value=True,
                             className="m-2",
                             style=dict(
@@ -89,7 +120,7 @@ class LeftPane(dbc.Col):
                         ),
                         dbc.Switch(
                             label="Dark Mode",
-                            id="cb-dark-mode",
+                            id=self.ids.checkboxes.dark_mode,
                             value=True,
                             className="m-2",
                             style=dict(
@@ -100,7 +131,7 @@ class LeftPane(dbc.Col):
                         html.Div([], id="div-test"),
                         dbc.Button(
                             html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
-                            id="btn-diagram-root",
+                            id=self.ids.buttons.diagram_root,
                             color="secondary",
                             class_name="m-1",
                             style={
@@ -109,7 +140,7 @@ class LeftPane(dbc.Col):
                         ),
                         dbc.Button(
                             html.I(className="bi-chevron-expand", style={"font-size": "1rem"}),
-                            id="btn-expand-all",
+                            id=self.ids.buttons.expand_all,
                             color="secondary",
                             class_name="m-1",
                             style={
@@ -117,7 +148,7 @@ class LeftPane(dbc.Col):
                             },
                         ),
                         dcc.Interval(
-                            id="intvl-expand-all",
+                            id=self.ids.intervals.expand_all,
                             interval=10,
                             disabled=True,
                         ),
@@ -160,9 +191,9 @@ class LeftPane(dbc.Col):
 
         @app.callback(
             Output("div-jobs-table", "children"),
-            Output("intvl-expand-all", "max_intervals"),
-            Output("intvl-expand-all", "disabled"),
-            Input("btn-expand-all", "n_clicks"),
+            Output(cls.ids.intervals.expand_all, "max_intervals"),
+            Output(cls.ids.intervals.expand_all, "disabled"),
+            Input(cls.ids.buttons.expand_all, "n_clicks"),
             State("jobs_table", "data"),
             State("jobs_table", "dataFiltering"),
             prevent_initial_call=True,
@@ -175,9 +206,9 @@ class LeftPane(dbc.Col):
 
         @app.callback(
             Output("div-jobs-table", "children"),
-            Output("intvl-expand-all", "disabled"),
-            Output("intvl-expand-all", "n_intervals"),
-            Input("intvl-expand-all", "n_intervals"),
+            Output(cls.ids.intervals.expand_all, "disabled"),
+            Output(cls.ids.intervals.expand_all, "n_intervals"),
+            Input(cls.ids.intervals.expand_all, "n_intervals"),
             prevent_initial_call=True,
         )
         def delayed_table_gen(n_intvl):
@@ -211,10 +242,10 @@ class LeftPane(dbc.Col):
         cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType, cb_manager: dash.DiskcacheManager
     ) -> None:
         @app.callback(
-            Output("intvl-refresh", "disabled"),
-            Output("intvl-refresh", "interval"),
-            Input("cb-enable-refresh", "value"),
-            Input("sel-refresh-interval", "value"),
+            Output(cls.ids.intervals.refresh, "disabled"),
+            Output(cls.ids.intervals.refresh, "interval"),
+            Input(cls.ids.checkboxes.refresh, "value"),
+            Input(cls.ids.selects.refresh_interval, "value"),
         )
         def enable_refresh(cb_value: bool, interval: int) -> tuple[bool, int]:
             return not cb_value, int(interval)
@@ -222,7 +253,7 @@ class LeftPane(dbc.Col):
         @app.callback(
             *callback.outputs,
             Output("lbl-last-update", "children"),
-            Input("btn-refresh-now", "n_clicks"),
+            Input(cls.ids.buttons.refresh, "n_clicks"),
             *callback.inputs,
             background=True,
             manager=cb_manager,
@@ -246,7 +277,7 @@ class LeftPane(dbc.Col):
             prevent_initial_call=True,
         )
         def intvl_refresh_trigger(nintervals, *args, **kwargs):
-            if not dash.ctx.triggered_id == "intvl-refresh":
+            if not dash.ctx.triggered_id == cls.ids.intervals.refresh:
                 raise PreventUpdate()
             current_time = datetime.datetime.now().time().isoformat("seconds")
             return *callback.function(*args, **kwargs), current_time
