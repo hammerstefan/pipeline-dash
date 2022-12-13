@@ -1,30 +1,51 @@
+### Features
+#### My Use-case
 * Add more data to jobs table
 * Make navigation of jobs table faster
   * Expand subtree button
 * Revisit: Handle graph scaling to viewport size
 * Pipepline depth limit selection
 * move settings to modal
-* take another look at improving the custom-callback syntax for components. @decorator somehow?
-* Take another look at top level callbacks and dependency on id string
 * Add more info to job panel
   * timestamp
   * sub jobs
   * history
   * downstream
 * Datetime filter on table
+* renable textual output
+* job config tab / dropdown (load multiple job configs and select which to view in interface)
+#### Generalizing (other use-cases)
+* Integration with other workflow engines
+* Specify which job parameters to track (rather than fixed "SERIAL")
+
+
+### Maintainability
+* take another look at improving the custom-callback syntax for components. @decorator somehow?
+* Take another look at top level callbacks and dependency on id string
 * set global prevent_initial_callback and adjust individual callbacks
 * refactor data importer to make it easier to add other sources of data
 * testing
   * callback testing using dash framework
   * unit testing around core logic
-* fix that stupid Label On/Off button in dark mode
-  * problem in Plotly, 
-  * might need to create a floating button to replace it?
-  * or, fix in plotly upstream
-* Write more thorough docks on job config files
-* renable textual output
 * add proper logging
   * especially around callbacks
 * actual error handling on data import
 * actual error handling when parsing YAML
+* tox (test, lint, black)
+
+
+### Bugs
+* fix that stupid Label On/Off button in dark mode
+  * problem in Plotly, 
+  * might need to create a floating button to replace it?
+  * or, fix in plotly upstream
+
+
+### Documentation
+* Write more thorough docs on job config files
 * docstrings on the key classes / functions
+* Create an online demo
+  * JJB -> Jenkikns -> PD Job Config -> PD Dash
+* Create an offline demo
+  * Use cache data from oneline demo
+  * Cache -> PD Job Config -> PD Dash
