@@ -18,6 +18,7 @@ from pipeline_dash.pipeline_utils import (
     add_recursive_jobs_pipeline,
     collect_jobs_dict,
     collect_jobs_pipeline,
+    find_all_pipeline,
     PipelineDict,
     recurse_pipeline,
 )
@@ -133,14 +134,19 @@ def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug
 
     def get_job_data_() -> tuple[PipelineDict, JobDataDict]:
         start_time = time.process_time()
-        job_data_ = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
+        job_data_: JobDataDict = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
         hash_ = hash_url(str(pathlib.Path(jobs_file).absolute().resolve()))
         os.makedirs(cache, exist_ok=True)
-        if recurse:
-            jobs_cache_file = pathlib.Path(cache, hash_)
-            recurse_downstream(job_data_, load, store, jobs_cache_file)
-
         pipeline_dict_ = collect_jobs_pipeline(yaml_data)
+        if recurse:
+            jobs_to_recurse = [
+                p["name"] for p in find_all_pipeline(pipeline_dict_, lambda name, p: bool(p.get("recurse")))
+            ]
+            job_data_to_recurse = {k: v for k, v in job_data_.items() if k in jobs_to_recurse}
+            jobs_cache_file = pathlib.Path(cache, hash_)
+            recurse_downstream(job_data_to_recurse, load, store, jobs_cache_file)
+            job_data_.update(job_data_to_recurse)
+
         if recurse:
             pipeline_dict_ = add_recursive_jobs_pipeline(pipeline_dict_, job_data_)
         calculate_status(pipeline_dict_, job_data_)

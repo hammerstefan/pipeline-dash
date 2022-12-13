@@ -1,6 +1,3 @@
-* Use `recurse` option in YAML to determine if to recurse jobs or not.
-  * Currently, will recurse everything if `recurse` command is used
-  * Need to refactor how we're determining what job_data to collect, right now we're collecting everything
 * Add more data to jobs table
 * Make navigation of jobs table faster
   * Expand subtree button

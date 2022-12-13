@@ -98,29 +98,49 @@ def find_pipeline_path(pipeline: PipelineDict, select_fn: Callable[[str, Pipelin
     return path[1:] if path else None
 
 
+def find_all_pipeline(pipeline: PipelineDict, select_fn: Callable[[str, PipelineDict], bool]) -> list[PipelineDict]:
+    """Find all sub-pipelines for which select_fn is True"""
+
+    def _find(name_, pipeline_):
+        rv = []
+        if select_fn(name_, pipeline_):
+            rv.append(pipeline_)
+        rv2 = recurse_pipeline(pipeline_, _find)
+        return rv + list(itertools.chain.from_iterable(rv2) if rv2 is not None else [])
+
+    # if select_fn("", pipeline):
+    #     return pipeline
+    return _find("", pipeline) or []
+
+
 def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
-    def fill_pipeline(name: str, pipeline: Union[dict, list], server: str) -> dict[str, PipelineDict] | None:
-        server_ = None
-        recurse_ = False
+    def fill_pipeline(name: str, pipeline: Union[dict, list], variables: dict) -> dict[str, PipelineDict] | None:
+        variables_ = variables.copy()
         if name in special_keys:
             return None
+        server_ = None
+        if recurse_ := (
+            pipeline.get("recurse", variables_.get("recurse"))
+            if isinstance(pipeline, dict)
+            else variables_.get("recurse")
+        ):
+            variables_["recurse"] = recurse_
         if name and not name.startswith("."):
-            server_ = server
-            recurse_ = pipeline["recurse"] if isinstance(pipeline, dict) and "recurse" in pipeline else False
+            server_ = variables_.get("server")
         else:
             name = name[1:]
         p = PipelineDict(
             name=name,
             children={},
             uuid=str(uuid.uuid4()),
-            recurse=recurse_,
+            recurse=recurse_ or False,
         )
         if isinstance(pipeline, dict):
             if label := pipeline.get("label"):
                 p["label"] = label
         if server_:
             p["server"] = server_
-        children = recurse_yaml(pipeline, fill_pipeline, server)
+        children = recurse_yaml(pipeline, fill_pipeline, variables_)
         mergedeep.merge(p["children"], *children, strategy=mergedeep.Strategy.TYPESAFE_ADDITIVE) if children else None
         return {name: p}
 
@@ -130,7 +150,7 @@ def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
         tmp: dict[str, PipelineDict]
         for k in data["pipelines"]:
             if type(data["pipelines"]) is dict:
-                tmp = fill_pipeline(k, data["pipelines"][k], server) or dict()
+                tmp = fill_pipeline(k, data["pipelines"][k], {"server": server}) or dict()
             else:
                 tmp = fill_pipeline(k, [], server) or dict()
             mergedeep.merge(pipelines, tmp, strategy=mergedeep.Strategy.TYPESAFE_ADDITIVE)
@@ -143,7 +163,7 @@ def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
 
 def add_recursive_jobs_pipeline(pipeline: PipelineDict, job_data: JobDataDict) -> PipelineDict:
     def fill_pipeline(name: str, pipeline_: PipelineDict):
-        if "server" in pipeline_ and job_data.get(name, JobData.UNDEFINED).downstream:
+        if "server" in pipeline_ and pipeline_.get("recurse") and job_data.get(name, JobData.UNDEFINED).downstream:
             server = pipeline_["server"]
             for k, v in job_data[name].downstream.items():
                 pipeline_["children"].setdefault(
@@ -152,6 +172,7 @@ def add_recursive_jobs_pipeline(pipeline: PipelineDict, job_data: JobDataDict) -
                         name=k,
                         children={},
                         uuid=str(uuid.uuid4()),
+                        recurse=True,
                     ),
                 ).setdefault("server", v)
         recurse_pipeline(pipeline_, fill_pipeline)
