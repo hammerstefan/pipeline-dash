@@ -105,7 +105,7 @@ def help(ctx, subcommand):
 
 
 @cli.command()
-@click.argument("jobs_file")
+@click.argument("jobs_file", nargs=-1, required=True, type=click.Path(exists=True))
 @click.option("--recurse", is_flag=True, help="BETA: Recursively fetch job data for EVERY job listed")
 @click.option("--verbose", is_flag=True, help="Show verbose output")
 @click.option("--debug", is_flag=True, help="Turn on debug features (verbose logging, inspection features, etc)")
@@ -129,15 +129,20 @@ def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug
         do_verbose()
     if store:
         os.makedirs(store, exist_ok=True)
-    with open(jobs_file) as file:
-        yaml_data = yaml.safe_load(file)
 
-    def get_job_data_() -> tuple[PipelineDict, JobDataDict]:
+    job_configs = collections.OrderedDict()
+    for path in (pathlib.Path(f) for f in jobs_file):
+        yaml_data = yaml.safe_load(path.read_text())
+        jobs_config_name = yaml_data.get("name", path.name)
+        job_configs[jobs_config_name] = yaml_data
+
+    def get_job_data_(job_config_name: Optional[str] = None) -> tuple[PipelineDict, JobDataDict]:
+        yaml_data_ = job_configs[job_config_name] if job_config_name else next(iter(job_configs.values()))
         start_time = time.process_time()
-        job_data_: JobDataDict = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data), load, store))
-        hash_ = hash_url(str(pathlib.Path(jobs_file).absolute().resolve()))
+        job_data_: JobDataDict = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data_), load, store))
+        hash_ = hash_url(str(pathlib.Path(jobs_file[0]).absolute().resolve()))
         os.makedirs(cache, exist_ok=True)
-        pipeline_dict_ = collect_jobs_pipeline(yaml_data)
+        pipeline_dict_ = collect_jobs_pipeline(yaml_data_)
         if recurse:
             jobs_to_recurse = [
                 p["name"] for p in find_all_pipeline(pipeline_dict_, lambda name, p: bool(p.get("recurse")))
@@ -157,7 +162,7 @@ def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug
     # display_rich_table(pipeline_dict, job_data, load, store)
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
-    display_dash(get_job_data_, viz_dash.Config(debug=debug))
+    display_dash(get_job_data_, viz_dash.Config(debug=debug, job_configs=list(job_configs.keys())))
 
 
 if __name__ == "__main__":

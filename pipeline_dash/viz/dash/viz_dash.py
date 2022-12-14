@@ -27,25 +27,26 @@ class Ids:
     class StoreIds:
         figure_root = "store-figure-root"
         job_pane_data = "store-job-pane-date"
+        job_config_name = "store-job-config-name"
 
     stores = StoreIds
 
 
 @dataclass
 class Config:
+    job_configs: list[str]
     debug: bool = False
 
 
-def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]], config: Config):
+def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDict]], config: Config):
 
     cache = diskcache.Cache("./.diskcache")  # type: ignore
     background_callback_manager = dash.DiskcacheManager(cache)
-    pipeline_dict, job_data = get_job_data_fn()
+    pipeline_dict, job_data = get_job_data_fn(config.job_configs[0])
     graph = generate_nx(pipeline_dict, job_data)
     app = de.DashProxy(
         __name__,
         external_stylesheets=[
-            # dbc.themes.DARKLY,
             dbc.icons.BOOTSTRAP,
         ],
         transforms=[
@@ -54,18 +55,16 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
             de.NoOutputTransform(),
             # de.OperatorTransform(),
         ],
-        meta_tags=[
-            # dict(name="color-scheme", content="only light"),
-        ],
         assets_ignore="tabulator_.*css",
+        # suppress_callback_exceptions=True,
     )
     dash_bootstrap_templates.load_figure_template("darkly")
 
-    def callback_refresh(figure_root) -> tuple[go.Figure, list[dict], str]:
+    def callback_refresh(job_config_name, figure_root) -> tuple[go.Figure, list[dict], str]:
         nonlocal pipeline_dict, job_data
         # TODO: don't regen the world just to refresh some data from Jenkins
-        print(f"CALLBACK {figure_root}")
-        pipeline_dict_new, job_data_new = get_job_data_fn()
+        print(f"CALLBACK {job_config_name} {figure_root}")
+        pipeline_dict_new, job_data_new = get_job_data_fn(job_config_name)
         if rv := translate_uuid(figure_root, pipeline_dict, pipeline_dict_new):
             figure_root, sub_dict = rv
             print(f"Sub dict found: True")
@@ -84,7 +83,10 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
             Output("jobs_table", "data"),
             Output(Ids.stores.figure_root, "data"),
         ],
-        inputs=[State(Ids.stores.figure_root, "data")],
+        inputs=[
+            State(components.LeftPane.ids.selects.job_config, "value"),
+            State(Ids.stores.figure_root, "data"),
+        ],
         function=callback_refresh,
     )
 
@@ -97,38 +99,44 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
             refresh_data=get_job_data_fn,
             callback_manager=background_callback_manager,
         ),
+        config=components.LeftPane.Config(job_configs=config.job_configs),
     )
 
     layout_graph, fig = components.graph_col.generate(app, graph)
 
-    def layout_container() -> dbc.Container:
-        return dbc.Container(
-            [
-                html.Link(id="link-stylesheet", rel="stylesheet", href=dbc.themes.DARKLY),
-                html.Link(id="link-tabulator-stylesheet", rel="stylesheet", href="/assets/tabulator_midnight.min.css"),
-                dbc.Row(
-                    [
-                        left_pane,
-                        layout_graph,
-                    ],
-                    class_name="g-2",
-                ),
-                dbc.Row(
-                    [],
-                    id="row-job-pane",
-                    class_name="g-2",
-                ),
-                html.Div(id="hidden-div", hidden=True),
-                dcc.Store(id=Ids.stores.figure_root),
-                dcc.Store(id=Ids.stores.job_pane_data),
-                dcc.Interval(id="intvl-job-pane-diagram-click", disabled=True, max_intervals=1, interval=200),
-            ],
-            fluid=True,
-            id="dbc",
-            className="dbc",
-        )
+    def layout_container() -> list:
+        return [
+            html.Link(id="link-stylesheet", rel="stylesheet", href=dbc.themes.DARKLY),
+            html.Link(id="link-tabulator-stylesheet", rel="stylesheet", href="/assets/tabulator_midnight.min.css"),
+            dbc.Row(
+                [
+                    left_pane,
+                    layout_graph,
+                ],
+                class_name="g-2",
+            ),
+            dbc.Row(
+                [],
+                id="row-job-pane",
+                class_name="g-2",
+            ),
+            html.Div(id="hidden-div", hidden=True),
+            dcc.Store(id=Ids.stores.figure_root),
+            dcc.Store(id=Ids.stores.job_pane_data),
+            dcc.Interval(id="intvl-job-pane-diagram-click", disabled=True, max_intervals=1, interval=200),
+        ]
 
-    app.layout = layout_container()
+    app.layout = html.Div(
+        [
+            dcc.Store(id=Ids.stores.job_config_name, data=config.job_configs[0]),
+            dbc.Container(
+                layout_container(),
+                fluid=True,
+                id="dbc",
+                className="dbc",
+            ),
+        ],
+    )
 
     @app.callback(
         *components.GraphTooltip.callbacks.display.outputs,
@@ -137,6 +145,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         prevent_initial_call=True,
     )
     def cb_pipeline_graph_click(click_data, *args, **kwargs) -> tuple:
+        if click_data is None:
+            raise PreventUpdate()
         # pprint(click_data)
         points: list[dict] = click_data.get("points", [])
         if not points:
@@ -159,6 +169,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         prevent_initial_call=True,
     )
     def cb_input_job_info_click(e: dict):
+        if e is None:
+            raise PreventUpdate()
         uuid = e.get("detail")
         if uuid is None:
             raise PreventUpdate
@@ -182,6 +194,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         prevent_initial_call=True,
     )
     def cb_store_job_pane_data_updated(data):
+        if data is None:
+            raise PreventUpdate()
         data = JobPane.Data(**data)
         return [JobPane(app, data)]
 
@@ -227,6 +241,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         prevent_initial_call=True,
     )
     def cb_btn_diagram_click(e: dict, n_clicks):
+        if e is None and n_clicks is None:
+            raise PreventUpdate()
         uuid: Optional[str]
         if dash.ctx.triggered_id == components.LeftPane.ids.buttons.diagram_root:
             uuid = pipeline_dict["uuid"]
@@ -266,6 +282,8 @@ def display_dash(get_job_data_fn: Callable[[], tuple[PipelineDict, JobDataDict]]
         prevent_initial_call=True,
     )
     def cb_btn_responsive_graph_toggle(responsive, figure):
+        if responsive is None:
+            raise PreventUpdate()
         if not responsive:
             components.jobs_pipeline_fig.resize_fig_data_from_scale(figure, 0.8)
         else:

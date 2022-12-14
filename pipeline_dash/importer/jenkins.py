@@ -12,7 +12,6 @@ from urllib.parse import urlparse, urlsplit
 import aiohttp
 
 from pipeline_dash.job_data import JobData, JobDataDict, JobStatus
-from pipeline_dash.utils import next_get
 
 
 def hash_url(url_or_path: str) -> str:
@@ -100,7 +99,7 @@ async def get_job_data(
         load_dir=load_dir,
         store_dir=store_dir,
     )
-    parameters = next_get(
+    parameters: list = next(
         (a["parameters"] for a in r["actions"] if a and a["_class"] == "hudson.model.ParametersAction"), []
     )
     data = JobData(
@@ -108,7 +107,7 @@ async def get_job_data(
         build_num=r["id"],
         status=JobStatus(r["result"]),
         timestamp=datetime.utcfromtimestamp(r["timestamp"] / 1000.0),
-        serial=next_get((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
+        serial=next((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
         url=url.geturl(),
         downstream=downstream,
     )

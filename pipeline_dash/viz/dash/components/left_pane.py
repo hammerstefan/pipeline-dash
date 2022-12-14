@@ -15,6 +15,7 @@ from dash_tabulator import DashTabulator  # type: ignore
 
 from pipeline_dash.job_data import JobData, JobDataDict
 from pipeline_dash.pipeline_utils import get_downstream_serials, PipelineDict
+from pipeline_dash.viz.dash import viz_dash
 from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
 
@@ -39,10 +40,14 @@ class LeftPane(dbc.Col):
             refresh = "intvl-refresh"
             expand_all = "intvl-expand-all"
 
+        class _DivIds:
+            jobs_table = "div-jobs-table"
+
         buttons = _ButtonIds
         selects = _SelectIds
         checkboxes = _CheckboxIds
         intervals = _IntervalIds
+        divs = _DivIds
 
     ids = Ids
 
@@ -51,10 +56,14 @@ class LeftPane(dbc.Col):
         callback_manager: dash.DiskcacheManager
         RefreshCallbackType = PartialCallback[Callable[..., Any]]
         refresh: RefreshCallbackType
-        RefreshDataCallbackType = Callable[[], tuple[PipelineDict, JobDataDict]]
+        RefreshDataCallbackType = Callable[[str], tuple[PipelineDict, JobDataDict]]
         refresh_data: RefreshDataCallbackType
 
-    def __init__(self, app, pipeline_dict: PipelineDict, job_data: JobDataDict, callbacks: Callbacks):
+    @dataclass
+    class Config:
+        job_configs: list[str]
+
+    def __init__(self, app, pipeline_dict: PipelineDict, job_data: JobDataDict, callbacks: Callbacks, config: Config):
 
         self.setup_refresh_callbacks(app, callbacks.refresh, callbacks.callback_manager)
         self.setup_intvl_refresh_callback(app, callbacks.refresh, callbacks.callback_manager)
@@ -72,6 +81,21 @@ class LeftPane(dbc.Col):
                         ),
                     ],
                     className="d-flex justify-content-between align-items-center",
+                ),
+                dbc.InputGroup(
+                    [
+                        dbc.InputGroupText(
+                            dbc.Label("Job Config", align="end", class_name="my-0"),
+                            class_name="flex-row-reverse",
+                            style={"width": "14ch"},
+                        ),
+                        dbc.Select(
+                            id=self.ids.selects.job_config,
+                            options=[dict(label=v, value=v) for v in config.job_configs],
+                            value=config.job_configs[0],
+                            persistence=True,
+                        ),
+                    ],
                 ),
                 dbc.InputGroup(
                     [
@@ -157,7 +181,7 @@ class LeftPane(dbc.Col):
                 # dbc.ListGroup(list(dbc.ListGroupItem(p) for p in job_details)),
                 html.Div(
                     self.generate_jobs_table(self.generate_job_details(pipeline_dict, job_data), False),
-                    id="div-jobs-table",
+                    id=self.ids.divs.jobs_table,
                 ),
                 de.EventListener(
                     id="el-diagram-click",
@@ -178,6 +202,7 @@ class LeftPane(dbc.Col):
         )
 
         self.setup_expand_all_callbacks(app)
+        # self.setup_sel_job_config_callbacks(app)
 
     @classmethod
     def setup_expand_all_callbacks(cls, app: dash.Dash):
@@ -194,11 +219,14 @@ class LeftPane(dbc.Col):
             Output(cls.ids.intervals.expand_all, "max_intervals"),
             Output(cls.ids.intervals.expand_all, "disabled"),
             Input(cls.ids.buttons.expand_all, "n_clicks"),
+            # Input(cls.ids.selects.job_config, "value"),
             State("jobs_table", "data"),
             State("jobs_table", "dataFiltering"),
             prevent_initial_call=True,
         )
-        def expand_all(n_clicks: int, table_data, filtering) -> Any:
+        def expand_all(n_clicks: int, job_config: str, table_data, filtering) -> Any:
+            if n_clicks is None and job_config is None:
+                raise PreventUpdate()
             nonlocal table_cache
             table_cache["data"] = table_data
             table_cache["filtering"] = filtering
@@ -212,6 +240,8 @@ class LeftPane(dbc.Col):
             prevent_initial_call=True,
         )
         def delayed_table_gen(n_intvl):
+            if n_intvl is None:
+                raise PreventUpdate()
             nonlocal expanded, table_cache
             expanded = not expanded
             return cls.generate_jobs_table(table_cache["data"], expanded, table_cache["filtering"]), True, 0
@@ -238,6 +268,18 @@ class LeftPane(dbc.Col):
         return job_details
 
     @classmethod
+    def setup_sel_job_config_callbacks(cls, app: dash.Dash) -> None:
+        @app.callback(
+            Output(viz_dash.Ids.stores.job_config_name, "data"),
+            Input(cls.ids.selects.job_config, "value"),
+            prevent_initial_call=True,
+        )
+        def cb_sel_job_config(value: str) -> str:
+            if value is None:
+                raise PreventUpdate
+            return value
+
+    @classmethod
     def setup_refresh_callbacks(
         cls, app: dash.Dash, callback: Callbacks.RefreshCallbackType, cb_manager: dash.DiskcacheManager
     ) -> None:
@@ -248,6 +290,8 @@ class LeftPane(dbc.Col):
             Input(cls.ids.selects.refresh_interval, "value"),
         )
         def enable_refresh(cb_value: bool, interval: int) -> tuple[bool, int]:
+            if cb_value is None and interval is None:
+                raise PreventUpdate()
             return not cb_value, int(interval)
 
         @app.callback(
@@ -260,6 +304,8 @@ class LeftPane(dbc.Col):
             prevent_initial_call=True,
         )
         def refresh_now(n_clicks: int, *args, **kwargs) -> Any:
+            if n_clicks is None:
+                raise PreventUpdate()
             current_time = datetime.datetime.now().time().isoformat("seconds")
             return *callback.function(*args, **kwargs), current_time
 
@@ -277,6 +323,8 @@ class LeftPane(dbc.Col):
             prevent_initial_call=True,
         )
         def intvl_refresh_trigger(nintervals, *args, **kwargs):
+            if nintervals is None:
+                raise PreventUpdate()
             if not dash.ctx.triggered_id == cls.ids.intervals.refresh:
                 raise PreventUpdate()
             current_time = datetime.datetime.now().time().isoformat("seconds")

@@ -12,11 +12,3 @@ def timeit(f):
         return ret
 
     return wrapper
-
-
-def next_get(iterable, default):
-    """Like next(iterable), but will return default if no next item in iterable"""
-    try:
-        return next(iterable)
-    except StopIteration:
-        return default
