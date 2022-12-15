@@ -19,6 +19,8 @@
 * dynamic generate subtree here options
   * will recurse jenkins from the selected job and show the new dynamic graph
   * would allow for more dynamic drilldown, especially from a customer pipeline-config that doesn't have every job
+* make the subway map more compact, we waste a bunch of space
+* Idea: if subgraph has a clear in-out with a bunch of complexity in the middle, collapse it
 #### Generalizing (other use-cases)
 * Integration with other workflow engines
 * Specify which job parameters to track (rather than fixed "SERIAL")
