@@ -13,8 +13,10 @@
   * downstream
 * Datetime filter on table
 * renable textual output
-* job config tab / dropdown (load multiple job configs and select which to view in interface)
 * configurable server port
+* support alternate jenkins URL that opens on click
+* do more caching & pre-loading to speed up dashboard
+  * especially around switching views, it's very slow right now
 #### Generalizing (other use-cases)
 * Integration with other workflow engines
 * Specify which job parameters to track (rather than fixed "SERIAL")

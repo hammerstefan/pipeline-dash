@@ -43,6 +43,8 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
     cache = diskcache.Cache("./.diskcache")  # type: ignore
     background_callback_manager = dash.DiskcacheManager(cache)
     pipeline_dict, job_data = get_job_data_fn(config.job_configs[0])
+    cache["pipeline_dict"] = pipeline_dict
+    cache["job_data"] = job_data
     graph = generate_nx(pipeline_dict, job_data)
     app = de.DashProxy(
         __name__,
@@ -61,11 +63,11 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
     dash_bootstrap_templates.load_figure_template("darkly")
 
     def callback_refresh(job_config_name, figure_root) -> tuple[go.Figure, list[dict], str]:
-        nonlocal pipeline_dict, job_data
+        _pipeline_dict = cache["pipeline_dict"]
         # TODO: don't regen the world just to refresh some data from Jenkins
         print(f"CALLBACK {job_config_name} {figure_root}")
         pipeline_dict_new, job_data_new = get_job_data_fn(job_config_name)
-        if rv := translate_uuid(figure_root, pipeline_dict, pipeline_dict_new):
+        if rv := translate_uuid(figure_root, _pipeline_dict, pipeline_dict_new):
             figure_root, sub_dict = rv
             print(f"Sub dict found: True")
         else:
@@ -74,7 +76,8 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         graph_ = generate_nx(sub_dict, job_data_new)
         fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
         table_data = components.LeftPane.generate_job_details(pipeline_dict_new, job_data_new)
-        pipeline_dict, job_data = pipeline_dict_new, job_data_new  # update the class pipeline/data cache
+        cache["pipeline_dict"] = pipeline_dict_new
+        cache["job_data"] = job_data_new
         return fig_, table_data, figure_root
 
     callback: components.LeftPane.Callbacks.RefreshCallbackType = PartialCallback(
@@ -174,7 +177,8 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         uuid = e.get("detail")
         if uuid is None:
             raise PreventUpdate
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == uuid)
+        _pipeline_dict = cache["pipeline_dict"]
+        sub_dict = find_pipeline(_pipeline_dict, lambda _, p: p.get("uuid", "") == uuid)
         if sub_dict is None:
             raise PreventUpdate()
         job_name = sub_dict["name"]
@@ -245,7 +249,8 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
             raise PreventUpdate()
         uuid: Optional[str]
         if dash.ctx.triggered_id == components.LeftPane.ids.buttons.diagram_root:
-            uuid = pipeline_dict["uuid"]
+            _pipeline_dict = cache["pipeline_dict"]
+            uuid = _pipeline_dict["uuid"]
         else:
             uuid = e.get("detail")
         if uuid is None:
@@ -261,10 +266,14 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         prevent_initial_call=True,
     )
     def cb_handle_new_figure_root(figure_root):
+        if figure_root is None:
+            raise PreventUpdate()
         start_time = time.process_time()
-        sub_dict = find_pipeline(pipeline_dict, lambda _, p: p.get("uuid", "") == figure_root)
+        _pipeline_dict = cache["pipeline_dict"]
+        sub_dict = find_pipeline(_pipeline_dict, lambda _, p: p.get("uuid", "") == figure_root)
         nonlocal fig
         if sub_dict is None:
+            print(f"Callback(cb_handle_new_figure_root): sub_dict for {figure_root} not found")
             raise PreventUpdate
         graph = generate_nx(sub_dict, job_data)
         end_time = time.process_time()
