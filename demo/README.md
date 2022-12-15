@@ -150,7 +150,7 @@ password=<admin-token>
 ```
 
 If your Jenkins server is on a different url, make sure to update it in `current.conf` and in the `PIPELINE_CONFIG`
-(which are configured to use servers `http://localhost:8080).
+YAML files (which are configured to use servers `http://localhost:8080`).
 
 Log in to the Jenkins instance and run the `00-Trigger-AlL` job which will trigger all the Jobs in the demo pipeline. 
 This should complete in just a few seconds.
