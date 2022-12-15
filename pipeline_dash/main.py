@@ -12,6 +12,7 @@ import mergedeep  # type: ignore
 import rich_click as click
 import yaml
 
+import importer.utils
 from pipeline_dash.importer.jenkins import collect_job_data, hash_url, JobName, recurse_downstream
 from pipeline_dash.job_data import JobData, JobDataDict, JobStatus
 from pipeline_dash.pipeline_utils import (
@@ -156,6 +157,7 @@ def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth,
 
         if recurse:
             pipeline_dict_ = add_recursive_jobs_pipeline(pipeline_dict_, job_data_)
+        importer.utils.add_human_url_to_job_data(job_data_, yaml_data_.get("url_translate", {}))
         calculate_status(pipeline_dict_, job_data_)
         end_time = time.process_time()
         print(f"Loaded {len(job_data_)} jobs in {end_time - start_time} sec")

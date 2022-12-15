@@ -14,12 +14,12 @@
 * Datetime filter on table
 * renable textual output
 * configurable server port
-* support alternate jenkins URL that opens on click
 * do more caching & pre-loading to speed up dashboard
   * especially around switching views, it's very slow right now
 #### Generalizing (other use-cases)
 * Integration with other workflow engines
 * Specify which job parameters to track (rather than fixed "SERIAL")
+* Jenkins folder support
 
 
 ### Maintainability

@@ -40,7 +40,7 @@ def generate_nx(job_tree: PipelineDict, job_data: JobDataDict) -> networkx.DiGra
             "layer": depth,
             "status": status,
             "downstream_status": d["downstream_status"],
-            "url": job_data[name].url if name in job_data else None,
+            "url": job_data[name].human_url if name in job_data else None,
             "serial": job_data.get(name, JobData.UNDEFINED).serial or sorted(get_downstream_serials(d, job_data)),
             "name": name,
             "uuid": d["uuid"],

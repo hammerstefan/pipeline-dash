@@ -502,7 +502,7 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: JobDataDict
                 build_num=fields.build_num,
                 timestamp=fields.timestamp.strftime("%y-%m-%d %H:%M UTC") if fields.timestamp else None,
                 status=fields.status.value,
-                url=fields.url,
+                url=fields.human_url,
                 num_children=len(job_struct["children"]),
             )
         )

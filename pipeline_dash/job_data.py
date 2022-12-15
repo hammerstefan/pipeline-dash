@@ -27,6 +27,7 @@ class JobData:
     timestamp: Optional[datetime] = None
     serial: Optional[str] = None
     url: Optional[str] = None
+    human_url: Optional[str] = None
     downstream: dict[JobName, ServerUrl] = field(default_factory=dict)
 
     @classmethod

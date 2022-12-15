@@ -187,7 +187,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
             name=job_name,
             serial=job_data_.serial,
             status=job_data_.status.value,
-            url=job_data_.url,
+            url=job_data_.human_url,
             uuid=sub_dict["uuid"],
         )
         return asdict(data)
