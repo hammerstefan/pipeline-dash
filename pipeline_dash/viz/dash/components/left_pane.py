@@ -302,6 +302,13 @@ class LeftPane(dbc.Col):
             background=True,
             manager=cb_manager,
             prevent_initial_call=True,
+            running=[
+                (
+                    Output(cls.ids.buttons.refresh, "children"),
+                    dbc.Spinner(size="sm"),
+                    html.I(className="bi-arrow-clockwise"),
+                ),
+            ],
         )
         def refresh_now(n_clicks: int, *args, **kwargs) -> Any:
             if n_clicks is None:
@@ -321,6 +328,13 @@ class LeftPane(dbc.Col):
             background=True,
             manager=cb_manager,
             prevent_initial_call=True,
+            running=[
+                (
+                    Output(cls.ids.buttons.refresh, "children"),
+                    dbc.Spinner(size="sm"),
+                    html.I(className="bi-arrow-clockwise"),
+                ),
+            ],
         )
         def intvl_refresh_trigger(nintervals, *args, **kwargs):
             if nintervals is None:

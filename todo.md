@@ -16,6 +16,9 @@
 * configurable server port
 * do more caching & pre-loading to speed up dashboard
   * especially around switching views, it's very slow right now
+* dynamic generate subtree here options
+  * will recurse jenkins from the selected job and show the new dynamic graph
+  * would allow for more dynamic drilldown, especially from a customer pipeline-config that doesn't have every job
 #### Generalizing (other use-cases)
 * Integration with other workflow engines
 * Specify which job parameters to track (rather than fixed "SERIAL")
@@ -37,6 +40,7 @@
 * tox (test, lint, black)
 * PyPi package
 * Snap package
+* move `background_callback_manager` to the dash.Dash constructor
 
 
 ### Bugs
