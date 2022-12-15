@@ -7,6 +7,7 @@ Tool to help inspect, observe, and visualize build pipelines.
 <!-- TOC -->
 * [pipeline-dash](#pipeline-dash)
   * [Features](#features)
+  * [Demo](#demo)
   * [Usage](#usage)
     * [CLI Usage](#cli-usage)
     * [Jobs YAML Files](#jobs-yaml-files)
@@ -35,6 +36,9 @@ Tool to help inspect, observe, and visualize build pipelines.
 * Periodic refresh
 * Export subway map as image
 * Dark and light mode
+
+## Demo
+Check out the [demo](demo/README.md) for a simple offline example that you can run yourself.
 
 ## Usage
 

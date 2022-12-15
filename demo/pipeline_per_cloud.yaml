@@ -1,0 +1,25 @@
+name: Demo - Per Cloud
+servers:
+  "http://localhost:8080":
+    pipelines:
+      .CloudA:
+        Able-CloudA-Stage:
+          recurse: true
+        Baker-CloudA-Stage:
+          recurse: true
+        Charlie-CloudA-Stage:
+          recurse: true
+      .CloudB:
+        Able-CloudB-Stage:
+          recurse: true
+        Baker-CloudB-Stage:
+          recurse: true
+        Charlie-CloudB-Stage:
+          recurse: true
+      .CloudC:
+        Able-CloudC-Stage:
+          recurse: true
+        Baker-CloudC-Stage:
+          recurse: true
+        Charlie-CloudC-Stage:
+          recurse: true

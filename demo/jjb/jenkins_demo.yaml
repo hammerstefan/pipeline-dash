@@ -1,0 +1,151 @@
+- defaults:
+    name: global
+    wrappers:
+      - timestamps
+      - workspace-cleanup
+
+- job:
+    name: "00-Trigger-AlL"
+    publishers:
+      - trigger-parameterized-builds:
+        - project:
+          - 'Able-Pre-Build'
+          - 'Baker-Pre-Build'
+          - 'Charlie-Pre-Build'
+          current-parameters: true
+          trigger-with-no-params: true
+
+- job-template:
+    name: '{codename}-Pre-Build'
+    builders:
+      - shell: |
+          echo "Doing Pre-Build checks for {codename}"
+    publishers:
+      - trigger-parameterized-builds:
+        - project: '{codename}-Build'
+          predefined-parameters: SERIAL=$BUILD_NUMBER
+          current-parameters: true
+
+- job-template:
+    name: '{codename}-Build'
+    parameters:
+      - string:
+          name: SERIAL
+    builders:
+      - shell: |
+          echo "Doing Build for {codename}"
+    publishers:
+      - trigger-parameterized-builds:
+        - project: '{codename}-Stage'
+          current-parameters: true
+          condition: SUCCESS
+
+- job-template:
+    name: '{codename}-Stage'
+    parameters:
+      - string:
+          name: SERIAL
+    builders:
+      - shell: |
+          echo "Doing Stage for {codename}"
+    publishers:
+      - trigger-parameterized-builds:
+        - project: '{codename}-CloudA-Stage'
+          current-parameters: true
+      - trigger-parameterized-builds:
+        - project: '{codename}-CloudB-Stage'
+          current-parameters: true
+      - trigger-parameterized-builds:
+        - project: '{codename}-CloudC-Stage'
+          current-parameters: true
+
+- job-template:
+    name: '{codename}-{cloud}-Stage'
+    parameters:
+      - string:
+          name: SERIAL
+    builders:
+      - shell: |
+          echo "Doing Stage for {codename} on {cloud}"
+    publishers:
+      - trigger-parameterized-builds:
+        - project: '{codename}-{cloud}-Test'
+          current-parameters: true
+          condition: SUCCESS
+
+- job-template:
+    name: '{codename}-{cloud}-Test'
+    parameters:
+      - string:
+          name: SERIAL
+    builders:
+      - shell: |
+          echo "Testing {codename} on {cloud}"
+          if [ "{cloud}" = "CloudB" ]; then
+            return 1
+          fi
+    publishers:
+      - trigger-parameterized-builds:
+        - project: '{codename}-{cloud}-Publish'
+          current-parameters: true
+          condition: SUCCESS
+
+- job-template:
+    name: '{codename}-{cloud}-Publish'
+    parameters:
+      - string:
+          name: SERIAL
+    builders:
+      - shell: |
+          echo "Publishing {codename} on {cloud}"
+
+- job-group:
+    name: '{codename}-pipeline'
+    jobs:
+      - '{codename}-Pre-Build'
+      - '{codename}-Build'
+      - '{codename}-Stage'
+
+- job-group:
+    name: '{codename}-{cloud}-pipeline'
+    jobs:
+      - '{codename}-{cloud}-Stage'
+      - '{codename}-{cloud}-Test'
+      - '{codename}-{cloud}-Publish'
+
+
+- project:
+    name: project-able
+    codename: Able
+    jobs:
+      - '{codename}-pipeline'
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudA
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudB
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudC
+
+- project:
+    name: project-baker
+    codename: Baker
+    jobs:
+      - '{codename}-pipeline'
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudA
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudB
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudC
+
+- project:
+    name: project-charlie
+    codename: Charlie
+    jobs:
+      - '{codename}-pipeline'
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudA
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudB
+      - '{codename}-{cloud}-pipeline':
+          cloud: CloudC

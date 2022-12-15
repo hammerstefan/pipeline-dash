@@ -1,0 +1,1 @@
+{"_class": "hudson.model.FreeStyleProject", "name": "Baker-Pre-Build", "lastBuild": {"_class": "hudson.model.FreeStyleBuild", "url": "http://localhost:8080/job/Baker-Pre-Build/6/"}, "downstreamProjects": [{"_class": "hudson.model.FreeStyleProject", "name": "Baker-Build", "url": "http://localhost:8080/job/Baker-Build/"}]}

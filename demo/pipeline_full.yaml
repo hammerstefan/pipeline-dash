@@ -1,0 +1,14 @@
+name: Demo - Full Pipelines
+servers:
+  "http://localhost:8080":
+    pipelines:
+      .demo-grouping:
+        .able:
+          Able-Pre-Build:
+            recurse: true
+        .baker:
+          Baker-Pre-Build:
+            recurse: true
+      .charlie:
+        Charlie-Pre-Build:
+          recurse: true

@@ -1,0 +1,1 @@
+{"_class": "hudson.model.FreeStyleProject", "name": "Charlie-CloudA-Stage", "lastBuild": {"_class": "hudson.model.FreeStyleBuild", "url": "http://localhost:8080/job/Charlie-CloudA-Stage/4/"}, "downstreamProjects": [{"_class": "hudson.model.FreeStyleProject", "name": "Charlie-CloudA-Test", "url": "http://localhost:8080/job/Charlie-CloudA-Test/"}]}

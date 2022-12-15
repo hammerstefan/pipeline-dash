@@ -1,0 +1,1 @@
+{"_class": "hudson.model.FreeStyleProject", "name": "Baker-CloudC-Publish", "lastBuild": {"_class": "hudson.model.FreeStyleBuild", "url": "http://localhost:8080/job/Baker-CloudC-Publish/3/"}, "downstreamProjects": []}

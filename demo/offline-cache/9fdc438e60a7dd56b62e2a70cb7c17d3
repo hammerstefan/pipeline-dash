@@ -1,0 +1,1 @@
+{"_class": "hudson.model.FreeStyleProject", "name": "Able-CloudC-Test", "lastBuild": {"_class": "hudson.model.FreeStyleBuild", "url": "http://localhost:8080/job/Able-CloudC-Test/3/"}, "downstreamProjects": [{"_class": "hudson.model.FreeStyleProject", "name": "Able-CloudC-Publish", "url": "http://localhost:8080/job/Able-CloudC-Publish/"}]}
