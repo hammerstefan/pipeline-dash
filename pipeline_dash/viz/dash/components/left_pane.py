@@ -85,7 +85,7 @@ class LeftPane(dbc.Col):
                 dbc.InputGroup(
                     [
                         dbc.InputGroupText(
-                            dbc.Label("Job Config", align="end", class_name="my-0"),
+                            dbc.Label("Pipeline Config", align="end", class_name="my-0"),
                             class_name="flex-row-reverse",
                             style={"width": "14ch"},
                         ),
@@ -94,6 +94,7 @@ class LeftPane(dbc.Col):
                             options=[dict(label=v, value=v) for v in config.job_configs],
                             value=config.job_configs[0],
                             persistence=True,
+                            persistence_type="memory",
                         ),
                     ],
                 ),
@@ -219,13 +220,12 @@ class LeftPane(dbc.Col):
             Output(cls.ids.intervals.expand_all, "max_intervals"),
             Output(cls.ids.intervals.expand_all, "disabled"),
             Input(cls.ids.buttons.expand_all, "n_clicks"),
-            # Input(cls.ids.selects.job_config, "value"),
             State("jobs_table", "data"),
             State("jobs_table", "dataFiltering"),
             prevent_initial_call=True,
         )
-        def expand_all(n_clicks: int, job_config: str, table_data, filtering) -> Any:
-            if n_clicks is None and job_config is None:
+        def expand_all(n_clicks: int, table_data, filtering) -> Any:
+            if n_clicks is None:
                 raise PreventUpdate()
             nonlocal table_cache
             table_cache["data"] = table_data

@@ -105,7 +105,7 @@ def help(ctx, subcommand):
 
 
 @cli.command()
-@click.argument("jobs_file", nargs=-1, required=True, type=click.Path(exists=True))
+@click.argument("pipeline-config", nargs=-1, required=True, type=click.Path(exists=True))
 @click.option("--recurse", is_flag=True, help="BETA: Recursively fetch job data for EVERY job listed")
 @click.option("--verbose", is_flag=True, help="Show verbose output")
 @click.option("--debug", is_flag=True, help="Turn on debug features (verbose logging, inspection features, etc)")
@@ -123,15 +123,17 @@ def help(ctx, subcommand):
     help="EXPERIMENTAL: Perform login.ubuntu.com SSO authentication",
     show_default=True,
 )
-@click.option("--user-file", help="User file if server authentication is required")
-def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug):
+@click.option("--user-file", help="User file if server authentication is required", type=click.Path(exists=True))
+def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth, debug):
     if verbose:
         do_verbose()
     if store:
         os.makedirs(store, exist_ok=True)
 
+    user_config = yaml.safe_load(pathlib.Path(user_file).read_text()) if user_file else dict()
+
     job_configs = collections.OrderedDict()
-    for path in (pathlib.Path(f) for f in jobs_file):
+    for path in (pathlib.Path(f) for f in pipeline_config):
         yaml_data = yaml.safe_load(path.read_text())
         jobs_config_name = yaml_data.get("name", path.name)
         job_configs[jobs_config_name] = yaml_data
@@ -139,8 +141,8 @@ def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug
     def get_job_data_(job_config_name: Optional[str] = None) -> tuple[PipelineDict, JobDataDict]:
         yaml_data_ = job_configs[job_config_name] if job_config_name else next(iter(job_configs.values()))
         start_time = time.process_time()
-        job_data_: JobDataDict = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data_), load, store))
-        hash_ = hash_url(str(pathlib.Path(jobs_file[0]).absolute().resolve()))
+        job_data_: JobDataDict = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data_), load, store, user_config))
+        hash_ = hash_url(str(pathlib.Path(pipeline_config[0]).absolute().resolve()))
         os.makedirs(cache, exist_ok=True)
         pipeline_dict_ = collect_jobs_pipeline(yaml_data_)
         if recurse:
@@ -149,7 +151,7 @@ def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug
             ]
             job_data_to_recurse = {k: v for k, v in job_data_.items() if k in jobs_to_recurse}
             jobs_cache_file = pathlib.Path(cache, hash_)
-            recurse_downstream(job_data_to_recurse, load, store, jobs_cache_file)
+            recurse_downstream(job_data_to_recurse, load, store, jobs_cache_file, user_config)
             job_data_.update(job_data_to_recurse)
 
         if recurse:
@@ -162,7 +164,13 @@ def dash(jobs_file, user_file, recurse, verbose, cache, store, load, auth, debug
     # display_rich_table(pipeline_dict, job_data, load, store)
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
-    display_dash(get_job_data_, viz_dash.Config(debug=debug, job_configs=list(job_configs.keys())))
+    display_dash(
+        get_job_data_,
+        viz_dash.Config(
+            debug=debug,
+            job_configs=list(job_configs.keys()),
+        ),
+    )
 
 
 if __name__ == "__main__":

@@ -8,8 +8,8 @@
 <!-- TOC -->
 
 ## Overview
-The `cli dash` command requires a `JOBS_FILE`, which is a YAML file that specifies the pipeline of jobs that you want
-to collect data for and visualize.
+The `cli dash` command requires a `PIPELINE_CONFIG`, which is a YAML file that specifies the pipeline of jobs that you
+want to collect data for and visualize.
 
 The file consists of a mapping of servers and the pipelines on each of those servers.  Pipeline collections are defined
 by and entry starting with a `.` (e.g. `.cool-project`). Collections with the same name (and hierachy) across multiple

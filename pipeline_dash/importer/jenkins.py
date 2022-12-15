@@ -58,7 +58,11 @@ async def api(
 
 
 async def get_job_data(
-    session: aiohttp.ClientSession, server: str, job: str, load_dir: Optional[str], store_dir: Optional[str]
+    session: aiohttp.ClientSession,
+    server: str,
+    job: str,
+    load_dir: Optional[str],
+    store_dir: Optional[str],
 ) -> JobData:
     """
     Get data for a single Jenkins `job` from the `server` url
@@ -119,7 +123,10 @@ ServerUrl = str
 
 
 async def collect_job_data(
-    pipeline_jobs: dict[JobName, ServerUrl], load_dir: Optional[str], store_dir: Optional[str]
+    pipeline_jobs: dict[JobName, ServerUrl],
+    load_dir: Optional[str],
+    store_dir: Optional[str],
+    user_config: Optional[dict],
 ) -> JobDataDict:
     """
     Get dict of all job data
@@ -130,7 +137,12 @@ async def collect_job_data(
     function without an internet connection to `server`). Can later be used as the `load_dir` param of this function.
     :return: Dictionary containing all JobData for every entry in `pipeline_jobs`
     """
-    async with aiohttp.ClientSession() as session:
+    auth = (
+        aiohttp.BasicAuth(login=user_config["user"], password=user_config["token"])
+        if {"user", "token"} <= user_config.keys()
+        else None
+    )
+    async with aiohttp.ClientSession(auth=auth) as session:
         pipeline_promises = dict()
         for name, server in pipeline_jobs.items():
             fields_promise = get_job_data(session, server, name, load_dir, store_dir)
@@ -142,7 +154,11 @@ async def collect_job_data(
 
 
 def recurse_downstream(
-    job_data: JobDataDict, load: Optional[str], store: Optional[str], jobs_cache_file: pathlib.Path
+    job_data: JobDataDict,
+    load: Optional[str],
+    store: Optional[str],
+    jobs_cache_file: pathlib.Path,
+    user_config: Optional[dict],
 ) -> None:
     """
     Recurse through `job_data` dict and fetch `JobData` for every listed "downstream" and add it to `job_data` dict
@@ -166,13 +182,13 @@ def recurse_downstream(
     if jobs_cache_file.exists():
         with open(jobs_cache_file, "rb") as fr:
             to_fetch = pickle.load(fr)
-            job_data2 = asyncio.run(collect_job_data(to_fetch, load, store))
+            job_data2 = asyncio.run(collect_job_data(to_fetch, load, store, user_config))
             job_data.update(job_data2)
             to_fetch_cache = to_fetch.copy()
     to_fetch = get_to_fetch(job_data)
     to_fetch_cache.update(to_fetch)
     while to_fetch:
-        job_data2 = asyncio.run(collect_job_data(to_fetch, load, store))
+        job_data2 = asyncio.run(collect_job_data(to_fetch, load, store, user_config))
         job_data.update(job_data2)
         to_fetch = get_to_fetch(job_data2)
         to_fetch_cache.update(to_fetch)

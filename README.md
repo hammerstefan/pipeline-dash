@@ -41,10 +41,10 @@ Tool to help inspect, observe, and visualize build pipelines.
 The easiest way to run `pipeline-dash` is to use `poetry` to install and run the tool.
 
 ``` bash
-git clone <REPO_URL>
+git clone https://github.com/hammerstefan/pipeline-dash.git
 cd pipeline-dash
 poetry install
-poetry run pd dash [OPTIONS] <JOB_FILE>
+poetry run pd dash [OPTIONS] <PIPELINE_CONFIG>...
 ```
 
 **Note**: `poetry install` only installs into a virtualenv, this will not affect your system.
@@ -62,7 +62,7 @@ Dash is running on http://127.0.0.1:8050/
 
 ### CLI Usage
 ```text
- Usage: cli dash [OPTIONS] JOBS_FILE                                                                                    
+ Usage: cli dash [OPTIONS] PIPELINE_CONFIG...                                                                           
                                                                                                                         
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --recurse                 BETA: Recursively fetch job data for EVERY job listed                                      │
@@ -78,8 +78,8 @@ Dash is running on http://127.0.0.1:8050/
 ```
 
 ### Jobs YAML Files
-The `cli dash` command requires a `JOBS_FILE`, which is a YAML file that specifies the pipeline of jobs that you want
-to collect data for and visualize. 
+The `cli dash` command requires a `PIPELINE_CONFIG`, which is a YAML file that specifies the pipeline of jobs that you 
+want to collect data for and visualize. 
 
 The file consists of a mapping of servers and the pipelines on each of those servers.  Pipeline collections are defined 
 by and entry starting with a `.` (e.g. `.cool-project`). Collections with the same name (and hierachy) across multiple
