@@ -8,7 +8,7 @@ from typing import Any, Callable, Concatenate, ParamSpec, TypedDict, Union
 import mergedeep  # type: ignore
 from typing_extensions import NotRequired
 
-from pipeline_dash.job_data import JobData, JobDataDict
+from pipeline_dash.job_data import JobData, JobDataDict, JobName
 from pipeline_dash.utils import timeit
 
 
@@ -181,7 +181,7 @@ def add_recursive_jobs_pipeline(pipeline: PipelineDict, job_data: JobDataDict) -
     return pipeline
 
 
-def collect_jobs_dict(yaml_data: dict) -> dict:
+def collect_jobs_dict(yaml_data: dict) -> dict[JobName, str]:
     def fill_pipeline(name: str, pipeline: Union[dict, list], server: str, out_struct: dict):
         if name in special_keys:
             return None

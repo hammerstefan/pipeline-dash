@@ -12,7 +12,7 @@ import mergedeep  # type: ignore
 import rich_click as click
 import yaml
 
-import importer.utils
+import pipeline_dash.importer.utils as importer_utils
 from pipeline_dash.importer.jenkins import collect_job_data, hash_url, JobName, recurse_downstream
 from pipeline_dash.job_data import JobData, JobDataDict, JobStatus
 from pipeline_dash.pipeline_utils import (
@@ -126,41 +126,66 @@ def help(ctx, subcommand):
 )
 @click.option("--user-file", help="User file if server authentication is required", type=click.Path(exists=True))
 def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth, debug):
+    import diskcache  # type: ignore
+
+    dcache = diskcache.Cache(".diskcache")
     if verbose:
         do_verbose()
     if store:
         os.makedirs(store, exist_ok=True)
 
+    # noinspection PyPep8Naming
+    PipelineConfigName = str
     user_config = yaml.safe_load(pathlib.Path(user_file).read_text()) if user_file else dict()
 
     job_configs = collections.OrderedDict()
     for path in (pathlib.Path(f) for f in pipeline_config):
         yaml_data = yaml.safe_load(path.read_text())
         jobs_config_name = yaml_data.get("name", path.name)
+        yaml_data["path_hash"] = hash_url(str(path.absolute().resolve()))
         job_configs[jobs_config_name] = yaml_data
 
-    def get_job_data_(job_config_name: Optional[str] = None) -> tuple[PipelineDict, JobDataDict]:
-        yaml_data_ = job_configs[job_config_name] if job_config_name else next(iter(job_configs.values()))
+    job_server_dicts: dict[PipelineConfigName, dict[JobName, str]] = dict()
+    job_data: dict[PipelineConfigName, JobDataDict] = dict()
+    pipeline_dicts: dict[PipelineConfigName, PipelineDict] = dict()
+    # preload data
+    os.makedirs(cache, exist_ok=True)
+    for name, data in job_configs.items():
         start_time = time.process_time()
-        job_data_: JobDataDict = asyncio.run(collect_job_data(collect_jobs_dict(yaml_data_), load, store, user_config))
-        hash_ = hash_url(str(pathlib.Path(pipeline_config[0]).absolute().resolve()))
-        os.makedirs(cache, exist_ok=True)
-        pipeline_dict_ = collect_jobs_pipeline(yaml_data_)
+        job_server_dicts[name] = collect_jobs_dict(data)
+        job_data[name] = asyncio.run(collect_job_data(job_server_dicts[name], load, store, user_config))
+        pipeline_dicts[name] = collect_jobs_pipeline(data)
         if recurse:
             jobs_to_recurse = [
-                p["name"] for p in find_all_pipeline(pipeline_dict_, lambda name, p: bool(p.get("recurse")))
+                p["name"] for p in find_all_pipeline(pipeline_dicts[name], lambda _, p: bool(p.get("recurse")))
             ]
-            job_data_to_recurse = {k: v for k, v in job_data_.items() if k in jobs_to_recurse}
-            jobs_cache_file = pathlib.Path(cache, hash_)
+            job_data_to_recurse = {k: v for k, v in job_data[name].items() if k in jobs_to_recurse}
+            jobs_cache_file = pathlib.Path(cache, data["path_hash"])
             recurse_downstream(job_data_to_recurse, load, store, jobs_cache_file, user_config)
-            job_data_.update(job_data_to_recurse)
+            job_data[name].update(job_data_to_recurse)
+            job_server_dicts[name] = {name: data.server for name, data in job_data[name].items()}
 
         if recurse:
-            pipeline_dict_ = add_recursive_jobs_pipeline(pipeline_dict_, job_data_)
-        importer.utils.add_human_url_to_job_data(job_data_, yaml_data_.get("url_translate", {}))
-        calculate_status(pipeline_dict_, job_data_)
+            pipeline_dicts[name] = add_recursive_jobs_pipeline(pipeline_dicts[name], job_data[name])
+        importer_utils.add_human_url_to_job_data(job_data[name], data.get("url_translate", {}))
+        calculate_status(pipeline_dicts[name], job_data[name])
         end_time = time.process_time()
-        print(f"Loaded {len(job_data_)} jobs in {end_time - start_time} sec")
+        print(f"Loaded {name}, {len(job_data[name])} jobs in {end_time - start_time} sec")
+
+    def get_job_data_(job_config_name: Optional[str] = None, refresh: bool = True) -> tuple[PipelineDict, JobDataDict]:
+        pipeline_dict_ = pipeline_dicts[job_config_name]
+        if refresh:
+            start_time = time.process_time()
+            job_data_: JobDataDict = asyncio.run(
+                collect_job_data(job_server_dicts[job_config_name], load, store, user_config)
+            )
+            calculate_status(pipeline_dict_, job_data_)
+            end_time = time.process_time()
+            job_data[job_config_name] = job_data_
+            print(f"Updated {job_config_name},  {len(job_data_)} jobs in {end_time - start_time} sec")
+        else:
+            job_data_ = job_data[job_config_name]
+
         return pipeline_dict_, job_data_
 
     # display_rich_table(pipeline_dict, job_data, load, store)

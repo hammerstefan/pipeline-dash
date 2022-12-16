@@ -90,6 +90,7 @@ async def get_job_data(
         return JobData(
             name=name,
             status=JobStatus.NOT_RUN,
+            server=server,
         )
     downstream = {i["name"]: server for i in r["downstreamProjects"]}
     # update base netloc of url to use that of the job config's server address, to avoid problems with SSO
@@ -114,6 +115,7 @@ async def get_job_data(
         serial=next((p["value"] for p in parameters if p["name"] == "SERIAL"), None),
         url=url.geturl(),
         downstream=downstream,
+        server=server,
     )
     return data
 
@@ -139,7 +141,7 @@ async def collect_job_data(
     """
     auth = (
         aiohttp.BasicAuth(login=user_config["user"], password=user_config["token"])
-        if {"user", "token"} <= user_config.keys()
+        if user_config and {"user", "token"} <= user_config.keys()
         else None
     )
     async with aiohttp.ClientSession(auth=auth) as session:

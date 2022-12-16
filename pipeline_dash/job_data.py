@@ -29,6 +29,7 @@ class JobData:
     url: Optional[str] = None
     human_url: Optional[str] = None
     downstream: dict[JobName, ServerUrl] = field(default_factory=dict)
+    server: Optional[str] = None
 
     @classmethod
     def _undefined(cls) -> JobData:
