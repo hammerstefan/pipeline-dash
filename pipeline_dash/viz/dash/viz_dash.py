@@ -40,7 +40,7 @@ class Config:
 
 def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDict]], config: Config):
 
-    cache = diskcache.Cache("./.diskcache")  # type: ignore
+    cache = diskcache.Cache("./.diskcache/dash")  # type: ignore
     background_callback_manager = dash.DiskcacheManager(cache)
     pipeline_dict, job_data = get_job_data_fn(config.job_configs[0])
     cache["pipeline_dict"] = pipeline_dict
@@ -58,6 +58,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
             # de.OperatorTransform(),
         ],
         assets_ignore="tabulator_.*css",
+        background_callback_manager=background_callback_manager,
         # suppress_callback_exceptions=True,
     )
     dash_bootstrap_templates.load_figure_template("darkly")
@@ -262,7 +263,6 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         Output("pipeline-graph", "figure"),
         Input(Ids.stores.figure_root, "data"),
         background=True,
-        manager=background_callback_manager,
         prevent_initial_call=True,
     )
     def cb_handle_new_figure_root(figure_root):

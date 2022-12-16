@@ -300,7 +300,6 @@ class LeftPane(dbc.Col):
             Input(cls.ids.buttons.refresh, "n_clicks"),
             *callback.inputs,
             background=True,
-            manager=cb_manager,
             prevent_initial_call=True,
             running=[
                 (
@@ -326,7 +325,6 @@ class LeftPane(dbc.Col):
             Input("intvl-refresh", "n_intervals"),
             *callback.inputs,
             background=True,
-            manager=cb_manager,
             prevent_initial_call=True,
             running=[
                 (

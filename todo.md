@@ -42,7 +42,6 @@
 * tox (test, lint, black)
 * PyPi package
 * Snap package
-* move `background_callback_manager` to the dash.Dash constructor
 
 
 ### Bugs
