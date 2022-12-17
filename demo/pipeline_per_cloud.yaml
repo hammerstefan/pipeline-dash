@@ -4,22 +4,22 @@ servers:
     pipelines:
       .CloudA:
         Able-CloudA-Stage:
-          recurse: true
+          $recurse: true
         Baker-CloudA-Stage:
-          recurse: true
+          $recurse: true
         Charlie-CloudA-Stage:
-          recurse: true
+          $recurse: true
       .CloudB:
         Able-CloudB-Stage:
-          recurse: true
+          $recurse: true
         Baker-CloudB-Stage:
-          recurse: true
+          $recurse: true
         Charlie-CloudB-Stage:
-          recurse: true
+          $recurse: true
       .CloudC:
         Able-CloudC-Stage:
-          recurse: true
+          $recurse: true
         Baker-CloudC-Stage:
-          recurse: true
+          $recurse: true
         Charlie-CloudC-Stage:
-          recurse: true
+          $recurse: true

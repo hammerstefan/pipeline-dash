@@ -26,8 +26,8 @@ class PipelineDict(TypedDict):
 P = ParamSpec("P")
 
 special_keys = [
-    "label",
-    "recurse",
+    "$label",
+    "$recurse",
 ]
 
 
@@ -120,7 +120,7 @@ def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
             return None
         server_ = None
         if recurse_ := (
-            pipeline.get("recurse", variables_.get("recurse"))
+            pipeline.get("$recurse", variables_.get("recurse"))
             if isinstance(pipeline, dict)
             else variables_.get("recurse")
         ):
@@ -136,7 +136,7 @@ def collect_jobs_pipeline(yaml_data: dict) -> PipelineDict:
             recurse=recurse_ or False,
         )
         if isinstance(pipeline, dict):
-            if label := pipeline.get("label"):
+            if label := pipeline.get("$label"):
                 p["label"] = label
         if server_:
             p["server"] = server_

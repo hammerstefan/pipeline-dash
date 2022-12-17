@@ -55,7 +55,7 @@ Which is made up of the following pieces:
 `pipeline_dash:main.cli` module
 * `dash` - the pipeline-dash command to execute; `dash` is the command to create the web dashboard seen in the
 screenshots above
-* `--recurse` - enable the optional recursive mode, where any job in the `PIPELINE_CONFIG` marked with `recurse: true`
+* `--recurse` - enable the optional recursive mode, where any job in the `PIPELINE_CONFIG` marked with `$recurse: true`
 will get info for all downstream jobs as well, and add them to the dashboard
 * `--load offline-cache` - load the offline job data cache files located at `demo/offline-cache` to allow pipeline-dash
 to generate the dashboard offline, without access to the Jenkins instance (useful for demo, developing the tool,
@@ -77,15 +77,15 @@ servers:
       .demo-grouping:
         .able:
           Able-Pre-Build:
-            recurse: true
+            $recurse: true
         .baker:
           Baker-Pre-Build:
-            recurse: true
+            $recurse: true
       .charlie:
         Charlie-Pre-Build:
-          recurse: true
+          $recurse: true
 ```
-Here we use `recurse: true` to get downstream jobs for all jobs starting at the `{codename}-Pre-Build` jobs.  Each
+Here we use `$recurse: true` to get downstream jobs for all jobs starting at the `{codename}-Pre-Build` jobs.  Each
 mapping key that starts with a period (`.`) is a pipeline grouping that groups all downstream jobs together. This is
 a useful tool to combine related pipelines together for status collection.
 
@@ -104,29 +104,29 @@ servers:
     pipelines:
       .CloudA:
         Able-CloudA-Stage:
-          recurse: true
+          $recurse: true
         Baker-CloudA-Stage:
-          recurse: true
+          $recurse: true
         Charlie-CloudA-Stage:
-          recurse: true
+          $recurse: true
       .CloudB:
         Able-CloudB-Stage:
-          recurse: true
+          $recurse: true
         Baker-CloudB-Stage:
-          recurse: true
+          $recurse: true
         Charlie-CloudB-Stage:
-          recurse: true
+          $recurse: true
       .CloudC:
         Able-CloudC-Stage:
-          recurse: true
+          $recurse: true
         Baker-CloudC-Stage:
-          recurse: true
+          $recurse: true
         Charlie-CloudC-Stage:
-          recurse: true
+          $recurse: true
 ```
 Here we group the start of each CODENAME cloud specific pipelines into groupings named after their cloud.  For example,
 we put Able-CloudA-Stage, Baker-CloudA-Stage, and Charlie-CloudA-Stage into a grouping called "CloudA" (it's a grouping
-since it starts with a `.`), then we set `recurse: true` to gather all downstream jobs.
+since it starts with a `.`), then we set `$recurse: true` to gather all downstream jobs.
 
 ### Jenkins Jobs
 The Jenkins jobs are generated using [Jenkins Job Builder](https://jenkins-job-builder.readthedocs.io/en/latest/). You

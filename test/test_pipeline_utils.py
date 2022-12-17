@@ -65,7 +65,7 @@ class Test(TestCase):
                 pipelines:
                   .lunar:
                     test-job-name:
-                      recurse: true
+                      $recurse: true
             """
         )
         self.assertDictEqual(
@@ -97,7 +97,7 @@ class Test(TestCase):
               "https://test-server":
                 pipelines:
                   .lunar:
-                    recurse: true
+                    $recurse: true
                     test-job-name:
             """
         )

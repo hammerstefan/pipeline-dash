@@ -5,10 +5,10 @@ servers:
       .demo-grouping:
         .able:
           Able-Pre-Build:
-            recurse: true
+            $recurse: true
         .baker:
           Baker-Pre-Build:
-            recurse: true
+            $recurse: true
       .charlie:
         Charlie-Pre-Build:
-          recurse: true
+          $recurse: true
