@@ -5,6 +5,7 @@ import itertools
 import logging
 import os
 import pathlib
+import sys
 import time
 from typing import List, Optional
 
@@ -39,6 +40,7 @@ def do_verbose():
     requests_log = logging.getLogger("requests.packages.urllib3")
     requests_log.setLevel(logging.DEBUG)
     requests_log.propagate = True
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 
 def calculate_status(pipeline: PipelineDict, job_data: JobDataDict) -> None:

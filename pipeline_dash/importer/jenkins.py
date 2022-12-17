@@ -2,16 +2,23 @@ import asyncio
 import base64
 import hashlib
 import json
+import logging
 import os
 import pathlib
 import pickle
 from datetime import datetime
-from typing import cast, Optional
+from pprint import pformat
+from textwrap import indent
+from typing import Callable, cast, Optional
 from urllib.parse import urlparse, urlsplit
 
 import aiohttp
+import tenacity
+from tenacity import retry, RetryCallState, RetryError, stop_after_delay, wait_random_exponential
 
 from pipeline_dash.job_data import JobData, JobDataDict, JobStatus
+
+logger = logging.getLogger(__name__)
 
 
 def hash_url(url_or_path: str) -> str:
@@ -20,6 +27,56 @@ def hash_url(url_or_path: str) -> str:
     return hash_
 
 
+def _cb_api_failure(retry_state: RetryCallState) -> dict:
+    """tenacity.retry callback on `api() failure"""
+
+    def format_output(outcome: Optional[tenacity.Future]):
+        tab = "\t"
+        return f"Exception: {outcome.exception() if outcome else 'UNKNOWN'}\n" + indent(
+            f"Function: {retry_state.fn.__name__ if retry_state.fn else 'UNKNWON'}\n"
+            f"Args:\n{indent(pformat(retry_state.args, width=200), tab)}\n"
+            f"Kwargs:\n{indent(pformat(retry_state.kwargs, width=200), tab)}\n",
+            "\t",
+        )
+
+    url = retry_state.kwargs.get("url") or retry_state.args[1]
+    logger.warning(f"Failed to get API at {url}")
+    if retry_state.outcome is None:
+        logger.debug(format_output(retry_state.outcome))
+        raise RuntimeError("Tenacity retry failed but no Future available (this should not happen")
+
+    logger.debug(format_output(retry_state.outcome))
+    ex = retry_state.outcome.exception()
+    match ex:
+        case json.decoder.JSONDecodeError():
+            return {}
+        case _:
+            raise RetryError(retry_state.outcome) from ex
+
+
+def log_retry(
+    log_level: int,
+    sec_format: str = "%0.2f",
+) -> Callable[["RetryCallState"], None]:
+    def fn(retry_state: RetryCallState) -> None:
+        url = retry_state.kwargs.get("url") or retry_state.args[1]
+        logger.log(
+            log_level,
+            f"Failed '{__name__}.{retry_state.fn and retry_state.fn.__qualname__}' for url '{url}' "
+            f"after {sec_format % retry_state.seconds_since_start}(s), "
+            f"this was attempt {retry_state.attempt_number}.",
+        )
+
+    return fn
+
+
+@retry(
+    wait=wait_random_exponential(multiplier=0.5, max=10),
+    stop=stop_after_delay(10),
+    # before=before_log(logger, logging.DEBUG),
+    after=log_retry(logging.INFO),
+    retry_error_callback=_cb_api_failure,
+)
 async def api(
     session: aiohttp.ClientSession,
     url: str,
@@ -27,7 +84,7 @@ async def api(
     depth: Optional[int] = None,
     load_dir: Optional[str] = None,
     store_dir: Optional[str] = None,
-):
+) -> dict:
     api_url = f"{url}/api/json"
     q = "?"
     if tree:
@@ -44,12 +101,8 @@ async def api(
                 return json.load(f)
     async with session.get(api_url) as req:
         d = await req.text()
-    # todo handle error
-    try:
-        json_data = json.loads(d)
-    except json.decoder.JSONDecodeError:
-        print(f"WARNING: Failed to get {api_url}")
-        return {}
+    # todo handle error better than throwing JSONDecodeError here if failed to get job API
+    json_data = json.loads(d)
     if store_dir:
         possible_path = os.path.join(store_dir, file_name)
         with open(possible_path, "w") as f:
@@ -63,7 +116,7 @@ async def get_job_data(
     job: str,
     load_dir: Optional[str],
     store_dir: Optional[str],
-) -> JobData:
+) -> Optional[JobData]:
     """
     Get data for a single Jenkins `job` from the `server` url
     :param session: aiohttp.ClientSession to use for requests
@@ -83,6 +136,8 @@ async def get_job_data(
         load_dir=load_dir,
         store_dir=store_dir,
     )
+    if not r:
+        return None
     name = r["name"]
 
     if not r["lastBuild"]:
@@ -104,6 +159,12 @@ async def get_job_data(
         load_dir=load_dir,
         store_dir=store_dir,
     )
+    if not r:
+        return JobData(
+            name=name,
+            status=JobStatus.UNDEFINED,
+            server=server,
+        )
     parameters: list = next(
         (a["parameters"] for a in r["actions"] if a and a["_class"] == "hudson.model.ParametersAction"), []
     )
