@@ -16,6 +16,7 @@ import yaml
 import pipeline_dash.importer.utils as importer_utils
 from pipeline_dash.importer.jenkins import collect_job_data, hash_url, JobName, recurse_downstream
 from pipeline_dash.job_data import JobData, JobDataDict, JobStatus
+from pipeline_dash.pipeline_config_schema import validate_pipeline_config
 from pipeline_dash.pipeline_utils import (
     add_recursive_jobs_pipeline,
     collect_jobs_dict,
@@ -143,6 +144,7 @@ def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth,
     job_configs = collections.OrderedDict()
     for path in (pathlib.Path(f) for f in pipeline_config):
         yaml_data = yaml.safe_load(path.read_text())
+        validate_pipeline_config(yaml_data)
         jobs_config_name = yaml_data.get("name", path.name)
         yaml_data["path_hash"] = hash_url(str(path.absolute().resolve()))
         job_configs[jobs_config_name] = yaml_data
