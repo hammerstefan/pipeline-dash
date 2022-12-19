@@ -28,6 +28,8 @@ from pipeline_dash.pipeline_utils import (
 from pipeline_dash.viz.dash import viz_dash
 from pipeline_dash.viz.dash.viz_dash import display_dash
 
+logger = logging.getLogger("pipeline_dash")
+
 click.rich_click.MAX_WIDTH = 120
 verbose = False
 
@@ -36,12 +38,10 @@ def do_verbose():
     global verbose
     verbose = True
     http.client.HTTPConnection.debuglevel = 2
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
     requests_log = logging.getLogger("requests.packages.urllib3")
     requests_log.setLevel(logging.DEBUG)
     requests_log.propagate = True
-    logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
 
 def calculate_status(pipeline: PipelineDict, job_data: JobDataDict) -> None:
@@ -144,10 +144,17 @@ def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth,
     job_configs = collections.OrderedDict()
     for path in (pathlib.Path(f) for f in pipeline_config):
         yaml_data = yaml.safe_load(path.read_text())
-        validate_pipeline_config(yaml_data)
+        rv = validate_pipeline_config(yaml_data)
+        if not rv:
+            logger.error(f"Failed to load pipeline config {path}.")
+            continue
         jobs_config_name = yaml_data.get("name", path.name)
         yaml_data["path_hash"] = hash_url(str(path.absolute().resolve()))
         job_configs[jobs_config_name] = yaml_data
+
+    if not len(job_configs):
+        logger.error(f"No pipeline configs loaded. Exiting.")
+        sys.exit(1)
 
     job_server_dicts: dict[PipelineConfigName, dict[JobName, str]] = dict()
     job_data: dict[PipelineConfigName, JobDataDict] = dict()

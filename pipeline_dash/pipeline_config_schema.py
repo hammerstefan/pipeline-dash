@@ -1,8 +1,11 @@
 import itertools
+import logging
 from types import NoneType
 
 import flatdict  # type: ignore
 from cerberus import rules_set_registry, Validator  # type: ignore
+
+logger = logging.getLogger("pipeline_dash")
 
 
 def check_pipeline_setting(field, value, error):
@@ -79,13 +82,15 @@ pipeline_rules = {
 rules_set_registry.add("pipeline_rules", pipeline_rules)
 
 
-def validate_pipeline_config(yaml_dict: dict) -> None:
+def validate_pipeline_config(yaml_dict: dict) -> bool:
     """Throws SchemaError if validation fails"""
     v = Validator(schema=yaml_schema)
     if v.validate(yaml_dict):
-        return
+        return True
 
     flat_errors = flatdict.FlatterDict(v.errors, delimiter="::")
     for k, v in flat_errors.items():
         display_name = ":".join(k.split("::")[::2])
-        print(f"{display_name}:\n\t{v}")
+        logger.error(f"{display_name}:\n\t{v}")
+
+    return False
