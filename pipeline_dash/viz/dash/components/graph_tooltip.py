@@ -9,6 +9,7 @@ from dash import dash, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 
 from pipeline_dash.viz.dash import components, viz_dash
+from pipeline_dash.viz.dash.logged_callback import logged_callback
 from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
 StyleType = dict[str, Any]
@@ -122,6 +123,7 @@ class GraphTooltip(html.Span):
             ],
             prevent_initial_call=True,
         )
+        @logged_callback
         def cb_btn_close_clicked(n_clicks, style):
             if all(nc is None for nc in n_clicks):
                 raise PreventUpdate()
@@ -134,6 +136,7 @@ class GraphTooltip(html.Span):
             State(self.ids.stores.node_data, "data"),
             prevent_initial_call=True,
         )
+        @logged_callback
         def cb_btn_view_subgraph_clicked(n_clicks, node_data):
             if n_clicks is None:
                 raise PreventUpdate()
@@ -146,6 +149,7 @@ class GraphTooltip(html.Span):
             State(self.ids.stores.node_data, "data"),
             prevent_initial_call=True,
         )
+        @logged_callback
         def cb_btn_view_details_clicked(n_clicks, data):
             if n_clicks is None:
                 raise PreventUpdate()

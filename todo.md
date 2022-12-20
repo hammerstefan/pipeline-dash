@@ -35,10 +35,10 @@
 * testing
   * callback testing using dash framework
   * unit testing around core logic
-* add proper logging
-  * especially around callbacks
-* actual error handling on data import
-* actual error handling when parsing YAML
+* add more logging?
+  * TODO
+* improve error handling on data import
+  * early detection if job doesn't exist on server (rather than retrying till timeout)
 * tox (test, lint, black)
 * PyPi package
 * Snap package

@@ -19,6 +19,7 @@ from pipeline_dash.job_data import JobData, JobDataDict
 from pipeline_dash.pipeline_utils import find_pipeline, PipelineDict, translate_uuid
 from . import components, network_graph
 from .components.job_pane import JobPane
+from .logged_callback import logged_callback
 from .network_graph import generate_nx
 from .partial_callback import PartialCallback
 
@@ -63,6 +64,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
     )
     dash_bootstrap_templates.load_figure_template("darkly")
 
+    @logged_callback
     def callback_refresh(job_config_name, figure_root) -> tuple[go.Figure, list[dict], str]:
         _pipeline_dict = cache["pipeline_dict"]
         # TODO: don't regen the world just to refresh some data from Jenkins
@@ -148,6 +150,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         *components.GraphTooltip.callbacks.display.inputs,
         prevent_initial_call=True,
     )
+    @logged_callback
     def cb_pipeline_graph_click(click_data, *args, **kwargs) -> tuple:
         if click_data is None:
             raise PreventUpdate()
@@ -172,6 +175,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         Input("el-info-click", "event"),
         prevent_initial_call=True,
     )
+    @logged_callback
     def cb_input_job_info_click(e: dict):
         if e is None:
             raise PreventUpdate()
@@ -198,6 +202,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         Input(Ids.stores.job_pane_data, "data"),
         prevent_initial_call=True,
     )
+    @logged_callback
     def cb_store_job_pane_data_updated(data):
         if data is None:
             raise PreventUpdate()
@@ -210,6 +215,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         State("pipeline-graph", "figure"),
         prevent_initial_call=True,
     )
+    @logged_callback
     def cb_graph_relayout(data, figure):
         if not data:
             raise PreventUpdate
@@ -231,6 +237,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
             de.Trigger("btn-left-pane-expand", "n_clicks"),
             prevent_initial_call=True,
         )
+        @logged_callback
         def cb_btn_left_pane_expand_click():
             nonlocal this_toggle
             this_toggle = not this_toggle
@@ -245,6 +252,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         Input(components.LeftPane.ids.buttons.diagram_root, "n_clicks"),
         prevent_initial_call=True,
     )
+    @logged_callback
     def cb_btn_diagram_click(e: dict, n_clicks):
         if e is None and n_clicks is None:
             raise PreventUpdate()
@@ -265,6 +273,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         background=True,
         prevent_initial_call=True,
     )
+    @logged_callback
     def cb_handle_new_figure_root(figure_root):
         if figure_root is None:
             raise PreventUpdate()
@@ -290,6 +299,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         State("pipeline-graph", "figure"),
         prevent_initial_call=True,
     )
+    @logged_callback
     def cb_btn_responsive_graph_toggle(responsive, figure):
         if responsive is None:
             raise PreventUpdate()
@@ -306,6 +316,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         Input(components.LeftPane.ids.checkboxes.dark_mode, "value"),
         State("pipeline-graph", "figure"),
     )
+    @logged_callback
     def cb_dark_mode(dark, figure):
         if dark:
             # with (files("dash_bootstrap_templates") / "templates" / "darkly.json").open() as f:

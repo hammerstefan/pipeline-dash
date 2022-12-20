@@ -39,6 +39,7 @@ def do_verbose():
     verbose = True
     http.client.HTTPConnection.debuglevel = 2
     logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
     requests_log = logging.getLogger("requests.packages.urllib3")
     requests_log.setLevel(logging.DEBUG)
     requests_log.propagate = True

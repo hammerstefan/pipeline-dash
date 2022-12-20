@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 import uuid
-from collections import OrderedDict
-from dataclasses import asdict, dataclass
-from pprint import pprint
+from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Tuple
 
 import dash  # type: ignore
-from dash import ALL, html, Input, MATCH, Output, State  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
+from dash import ALL, html, Input, MATCH, Output, State  # type: ignore
 
 # import dash_extensions.enrich as de
 from dash.dcc import Store  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 
+from pipeline_dash.viz.dash.logged_callback import logged_callback
 from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
 
@@ -122,7 +121,8 @@ class ButtonSplitOption(html.Div):
             State(self.ids.output(MATCH), "data"),
             prevent_initial_call=True,
         )
-        def btn_click(nclicks_dd, btn_children, store, output) -> Tuple[Store, str]:
+        @logged_callback
+        def cb_btn_click(nclicks_dd, btn_children, store, output) -> Tuple[Store, str]:
             cid = dash.ctx.triggered_id
             store = ButtonSplitOption.Store(**store)
             output = ButtonSplitOption.Output(**output)
@@ -144,6 +144,7 @@ class ButtonSplitOption(html.Div):
                 ),
                 prevent_initial_call=True,
             )
+            @logged_callback
             def btn_refresh(data, callback_inputs) -> Output | tuple[Any, Output]:
                 # todo combine this callback with the main callback
                 if not dash.ctx.triggered_id == self.ids.button(aio_id):
