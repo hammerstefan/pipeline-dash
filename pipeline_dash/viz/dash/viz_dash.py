@@ -1,5 +1,6 @@
 import json
 import time
+import uuid
 from dataclasses import asdict, dataclass
 from importlib.resources import files
 from typing import Callable, Optional
@@ -8,16 +9,19 @@ import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
 import diskcache  # type: ignore
+import flask_debugtoolbar  # type: ignore
 import plotly  # type: ignore
 from dash import ALL, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
 from dash_extensions import enrich as de  # type: ignore
+from flask import Flask
 from plotly import graph_objects as go  # type: ignore
 
 import pipeline_dash.viz.dash.components.jobs_pipeline_fig
 from pipeline_dash.job_data import JobData, JobDataDict
 from pipeline_dash.pipeline_utils import find_pipeline, PipelineDict, translate_uuid
 from . import components, network_graph
+from .cache import cache
 from .components.job_pane import JobPane
 from .logged_callback import logged_callback
 from .network_graph import generate_nx
@@ -29,6 +33,7 @@ class Ids:
         figure_root = "store-figure-root"
         job_pane_data = "store-job-pane-date"
         job_config_name = "store-job-config-name"
+        session_id = "store-session-id"
 
     stores = StoreIds
 
@@ -40,15 +45,26 @@ class Config:
 
 
 def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDict]], config: Config):
-
-    cache = diskcache.Cache("./.diskcache/dash")  # type: ignore
     background_callback_manager = dash.DiskcacheManager(cache)
     pipeline_dict, job_data = get_job_data_fn(config.job_configs[0])
     cache["pipeline_dict"] = pipeline_dict
     cache["job_data"] = job_data
     graph = generate_nx(pipeline_dict, job_data)
+
+    flask_app = Flask(__name__)
+    flask_app.debug = True
+    flask_app.config["SECRET_KEY"] = "mysecretkey"
+    flask_app.config["DEBUG_TB_PANELS"] = [
+        "flask_debugtoolbar.panels.profiler.ProfilerDebugPanel",
+        # Add the line profiling
+        "flask_debugtoolbar_lineprofilerpanel.panels.LineProfilerPanel",
+    ]
+    toolbar = flask_debugtoolbar.DebugToolbarExtension(flask_app)
+    session_id = str(uuid.uuid4())
+
     app = de.DashProxy(
         __name__,
+        server=flask_app,
         external_stylesheets=[
             dbc.icons.BOOTSTRAP,
         ],
@@ -56,7 +72,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
             de.TriggerTransform(),
             de.MultiplexerTransform(),
             de.NoOutputTransform(),
-            # de.OperatorTransform(),
+            de.OperatorTransform(),
         ],
         assets_ignore="tabulator_.*css",
         background_callback_manager=background_callback_manager,
@@ -65,7 +81,7 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
     dash_bootstrap_templates.load_figure_template("darkly")
 
     @logged_callback
-    def callback_refresh(job_config_name, figure_root) -> tuple[go.Figure, list[dict], str]:
+    def callback_refresh(job_config_name, figure_root, session_id) -> tuple[go.Figure, list[dict], str, str]:
         _pipeline_dict = cache["pipeline_dict"]
         # TODO: don't regen the world just to refresh some data from Jenkins
         print(f"CALLBACK {job_config_name} {figure_root}")
@@ -77,21 +93,23 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
             sub_dict = pipeline_dict_new
             print(f"Sub dict found: False")
         graph_ = generate_nx(sub_dict, job_data_new)
-        fig_ = components.jobs_pipeline_fig.generate_plot_figure(graph_)
+        fig_, show_annotations = components.jobs_pipeline_fig.generate_plot_figure(graph_, session_id)
         table_data = components.LeftPane.generate_job_details(pipeline_dict_new, job_data_new)
         cache["pipeline_dict"] = pipeline_dict_new
         cache["job_data"] = job_data_new
-        return fig_, table_data, figure_root
+        return fig_, table_data, figure_root, show_annotations
 
     callback: components.LeftPane.Callbacks.RefreshCallbackType = PartialCallback(
         outputs=[
             Output("pipeline-graph", "figure"),
             Output("jobs_table", "data"),
             Output(Ids.stores.figure_root, "data"),
+            Output(components.graph_col.ids.stores.show_annotations, "data"),
         ],
         inputs=[
             State(components.LeftPane.ids.selects.job_config, "value"),
             State(Ids.stores.figure_root, "data"),
+            State(Ids.stores.session_id, "data"),
         ],
         function=callback_refresh,
     )
@@ -108,9 +126,9 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         config=components.LeftPane.Config(job_configs=config.job_configs),
     )
 
-    layout_graph, fig = components.graph_col.generate(app, graph)
+    layout_graph, fig = components.graph_col.generate(app, graph, session_id)
 
-    def layout_container() -> list:
+    def layout_container(session_id_: str) -> list:
         return [
             html.Link(id="link-stylesheet", rel="stylesheet", href=dbc.themes.DARKLY),
             html.Link(id="link-tabulator-stylesheet", rel="stylesheet", href="/assets/tabulator_midnight.min.css"),
@@ -130,13 +148,14 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
             dcc.Store(id=Ids.stores.figure_root),
             dcc.Store(id=Ids.stores.job_pane_data),
             dcc.Interval(id="intvl-job-pane-diagram-click", disabled=True, max_intervals=1, interval=200),
+            dcc.Store(id=Ids.stores.session_id, data=session_id_),
         ]
 
     app.layout = html.Div(
         [
             dcc.Store(id=Ids.stores.job_config_name, data=config.job_configs[0]),
             dbc.Container(
-                layout_container(),
+                layout_container(session_id),
                 fluid=True,
                 id="dbc",
                 className="dbc",
@@ -269,12 +288,14 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
 
     @app.callback(
         Output("pipeline-graph", "figure"),
+        Output(components.graph_col.ids.stores.show_annotations, "data"),
         Input(Ids.stores.figure_root, "data"),
+        State(Ids.stores.session_id, "data"),
         background=True,
         prevent_initial_call=True,
     )
     @logged_callback
-    def cb_handle_new_figure_root(figure_root):
+    def cb_handle_new_figure_root(figure_root, session_id):
         if figure_root is None:
             raise PreventUpdate()
         start_time = time.process_time()
@@ -287,8 +308,8 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         graph = generate_nx(sub_dict, job_data)
         end_time = time.process_time()
         print(f"Generated network in {end_time - start_time} sec")
-        fig = components.jobs_pipeline_fig.generate_plot_figure(graph)
-        return fig
+        fig, show_annotations = components.jobs_pipeline_fig.generate_plot_figure(graph, session_id)
+        return fig, show_annotations
 
     @app.callback(
         [
@@ -333,4 +354,4 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
         figure["layout"]["template"] = template
         return dbc.themes.BOOTSTRAP, "/assets/tabulator_simple.min.css", figure
 
-    app.run_server(debug=config.debug)
+    app.run(debug=config.debug)
