@@ -133,6 +133,7 @@ def generate_annotations_layout_update(
     graph: networkx.DiGraph, session_id: str, show_annotations: bool
 ) -> tuple[LayoutUpdate, tuple[go.Annotation, ...]]:
     annotations = get_node_labels(graph) if show_annotations else tuple()
+    cache.set(f"{session_id}.annotations", annotations)
     default_scaling = cache.get(f"{session_id}.figure_default_scaling")
     size_annotations(default_scaling, annotations)
     # layout_buttons = list(
@@ -302,16 +303,15 @@ def resize_fig_data_from_scale(fig: dict, scale: float):
             d["marker"]["size"] = max(default_node_size * scale, 2)
         if "line" in d:
             d["line"]["width"] = max(default_edge_width * scale, 0.5)
-    if False:
-        # todo renable with annotations from cache
-        for an in itertools.chain(
-            fig["layout"].get("annotations", []),
-            fig["layout"]["updatemenus"][0]["buttons"][0]["args"][0]["annotations"],
-        ):  # type: dict
-            an["xshift"] = 5 * (scale if scale < 0 else pow(scale, 1.2))
-            an["yshift"] = 5
-            # an.yshift *= max(scale, 2.0)
-            an["font"]["size"] = scale_font_size(scale)
+    # todo renable with annotations from cache
+    for an in itertools.chain(
+        fig["layout"].get("annotations", []),
+        # fig["layout"]["updatemenus"][0]["buttons"][0]["args"][0]["annotations"],
+    ):  # type: dict
+        an["xshift"] = 5 * (scale if scale < 0 else pow(scale, 1.2))
+        an["yshift"] = 5
+        # an.yshift *= max(scale, 2.0)
+        an["font"]["size"] = scale_font_size(scale)
 
     fig["layout"]["uirevision"] = str(uuid.uuid4())
 
