@@ -191,6 +191,7 @@ def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth,
             job_data_: JobDataDict = asyncio.run(
                 collect_job_data(job_server_dicts[job_config_name], load, store, user_config)
             )
+            importer_utils.add_human_url_to_job_data(job_data_, job_configs[job_config_name].get("url_translate", {}))
             calculate_status(pipeline_dict_, job_data_)
             end_time = time.process_time()
             job_data[job_config_name] = job_data_
