@@ -66,7 +66,7 @@ Dash is running on http://127.0.0.1:8050/
 
 ### CLI Usage
 ```text
- Usage: cli dash [OPTIONS] PIPELINE_CONFIG...                                                                           
+ Usage: pd dash [OPTIONS] PIPELINE_CONFIG...                                                                           
                                                                                                                         
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --recurse                 BETA: Recursively fetch job data for EVERY job listed                                      │
@@ -82,7 +82,7 @@ Dash is running on http://127.0.0.1:8050/
 ```
 
 ### Jobs YAML Files
-The `cli dash` command requires a `PIPELINE_CONFIG`, which is a YAML file that specifies the pipeline of jobs that you 
+The `pd dash` command requires a `PIPELINE_CONFIG`, which is a YAML file that specifies the pipeline of jobs that you 
 want to collect data for and visualize. 
 
 The file consists of a mapping of servers and the pipelines on each of those servers.  Pipeline collections are defined 

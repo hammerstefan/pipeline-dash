@@ -24,11 +24,6 @@ servers:
         "Cool-Project-Build":
             "Cool-Project-Package":
                 "Cool-Project-Stage":
-  "https:test-server-url.com/endpoint/":
-    pipelines:
-      .cool-project:
-        "Cool-Project-Test":
-          "Cool-Project-Promote":
 ```
 
 This would generate a table view along the lines of this:
@@ -53,5 +48,30 @@ cool-project ─┬─── Cool-Project-Build ──── Package ───�
 
 ## Details
 TODO provide more complex examples
+
 ### Job Options
-* label - shortened display name to use on subway map
+All job options must be specified in the job's mapping, and must start with a `$` character
+```yaml
+    "Sample-Job":
+      $option: value
+```
+
+The following options are supported
+* `$label` - string - shortened display name to use on subway map
+```yaml
+    "Sample-Job":
+      $label: Example
+```
+The "Sample-Job" node on the subway map will be labeled "Example" instead of "Sample-Job"
+
+* `$recurse` - bool - flag to enable recursive job discovery, requires `pd` to be run with `--recurse`
+```yaml
+servers:
+  "https:build-server-url.com/endpoint/":
+    pipelines:
+      .sample-project:
+        "Sample-Build":
+          "Sample-Package":
+            $recurse: true
+```
+This will start recursive discovery of jobs downstream from "Sample-Package", *if* `pd` is run with `--recurse`.
