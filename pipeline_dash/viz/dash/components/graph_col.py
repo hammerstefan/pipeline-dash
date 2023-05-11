@@ -10,7 +10,6 @@ from dash.exceptions import PreventUpdate
 from dash_extensions.enrich import Operator, OperatorOutput
 from plotly import graph_objects as go  # type: ignore
 
-from pcprofile import pcprofile
 from pipeline_dash.viz.dash import components
 from pipeline_dash.viz.dash.components.jobs_pipeline_fig import generate_annotations_layout_update, generate_plot_figure
 from viz.dash import viz_dash
@@ -82,8 +81,8 @@ def generate(app: dash.Dash, graph: networkx.DiGraph, session_id: str) -> Tuple[
         prevent_initial_call=False,
     )
     @logged_callback
-    @pcprofile
-    def cb_show_annotations(show_annotations_, session_id_):
+    # @pcprofile
+    def cb_show_annotations(show_annotations_, session_id_, figure_root_):
         cached_val = cache.get(f"{session_id_}.show_annotations")
         import logging
 
