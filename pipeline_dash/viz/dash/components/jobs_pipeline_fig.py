@@ -7,7 +7,6 @@ from typing import Dict, Optional
 import networkx  # type: ignore
 from plotly import graph_objects as go  # type: ignore
 
-from pipeline_dash.pcprofile import pcprofile
 from pipeline_dash.viz.dash.cache import cache
 
 
@@ -62,7 +61,7 @@ class NetworkPlotFigure:
 ShowAnnotations = bool
 
 
-@pcprofile
+# @pcprofile
 def generate_plot_figure(graph: networkx.DiGraph, session_id: str) -> tuple[go.Figure, ShowAnnotations]:
     start_time = time.process_time()
     # pos = nx.multipartite_layout(graph, subset_key="layer", center=(0,1))
@@ -128,7 +127,7 @@ def generate_plot_figure(graph: networkx.DiGraph, session_id: str) -> tuple[go.F
 LayoutUpdate = dict
 
 
-@pcprofile
+# @pcprofile
 def generate_annotations_layout_update(
     graph: networkx.DiGraph, session_id: str, show_annotations: bool
 ) -> tuple[LayoutUpdate, tuple[go.Annotation, ...]]:
