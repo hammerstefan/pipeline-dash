@@ -78,13 +78,18 @@ def generate(app: dash.Dash, graph: networkx.DiGraph, session_id: str) -> Tuple[
         OperatorOutput(Ids.graph, "figure"),
         Input(Ids.stores.show_annotations, "data"),
         State(viz_dash.Ids.stores.session_id, "data"),
-        prevent_initial_call=True,
+        State(viz_dash.Ids.stores.figure_root, "data"),
+        prevent_initial_call=False,
     )
     @logged_callback
     @pcprofile
     def cb_show_annotations(show_annotations_, session_id_):
         cached_val = cache.get(f"{session_id_}.show_annotations")
-        if cached_val == show_annotations_:
+        import logging
+
+        logging.info(f"CACHE {session_id_}.show_annotations: {cached_val}")
+        # skip annotations update if we're already showing annotations and figure root has not changed
+        if cached_val == show_annotations_ and figure_root_ is None:
             raise PreventUpdate()
         cache.set(f"{session_id_}.show_annotations", show_annotations_)
         graph_ = cache.get(f"{session_id_}.graph")
