@@ -10,11 +10,10 @@ from dash.exceptions import PreventUpdate
 from dash_extensions.enrich import Operator, OperatorOutput
 from plotly import graph_objects as go  # type: ignore
 
-from pipeline_dash.viz.dash import components
+from pipeline_dash.viz.dash import components, viz_dash
+from pipeline_dash.viz.dash.cache import cache
 from pipeline_dash.viz.dash.components.jobs_pipeline_fig import generate_annotations_layout_update, generate_plot_figure
-from viz.dash import viz_dash
-from viz.dash.cache import cache
-from viz.dash.logged_callback import logged_callback
+from pipeline_dash.viz.dash.logged_callback import logged_callback
 
 
 class Ids:
