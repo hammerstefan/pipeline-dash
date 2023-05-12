@@ -15,10 +15,9 @@ from dash_tabulator import DashTabulator  # type: ignore
 
 from pipeline_dash.job_data import JobData, JobDataDict
 from pipeline_dash.pipeline_utils import get_downstream_serials, PipelineDict
-from pipeline_dash.viz.dash import viz_dash
+from pipeline_dash.viz.dash import components, viz_dash
 from pipeline_dash.viz.dash.logged_callback import logged_callback
 from pipeline_dash.viz.dash.partial_callback import PartialCallback
-from viz.dash import components
 
 
 class LeftPane(dbc.Col):
