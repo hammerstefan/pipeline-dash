@@ -5,3 +5,6 @@ config/user.yaml
 .dmypy.json
 .idea/
 __pycache__
+demo.yaml
+demo/
+**.pclprof
