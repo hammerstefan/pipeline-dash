@@ -150,7 +150,7 @@ async def get_job_data(
     downstream = {i["name"]: server for i in r["downstreamProjects"]}
     # update base netloc of url to use that of the job config's server address, to avoid problems with SSO
     url = urlsplit(r["lastBuild"]["url"])
-    url = url._replace(netloc=server_url.netloc)
+    url = url._replace(netloc=server_url.netloc, scheme=server_url.scheme)
 
     r = await api(
         session,
