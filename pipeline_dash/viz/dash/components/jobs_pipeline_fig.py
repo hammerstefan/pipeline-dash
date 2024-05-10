@@ -167,6 +167,7 @@ def generate_node_traces(graph):
     def find_unique_in_name(a: str, b: str):
         al = a.split("-")
         bl = b.split("-")
+        al, bl = (bl, al) if len(al) > len(bl) else (al, bl)
         i = 0
         for i, t in enumerate(al):
             if t != bl[i]:
