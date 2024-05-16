@@ -17,6 +17,7 @@ def add_jobs_to_table(
     progress_task_fn: Callable,
     load_dir: Optional[str],
     store_dir: Optional[str],
+    short_links: bool
 ):
     def status(job_status: JobStatus):
         if job_status is JobStatus.UNDEFINED:
@@ -31,6 +32,9 @@ def add_jobs_to_table(
         elif job_status == JobStatus.FAILURE:
             text.stylize("bold red3")
         return text
+
+    def link(name: str, url: str):
+        return f'[link={url}]{name}[/link]'
 
     def add_prefix(prefix: str) -> str:
         if not len(prefix):
@@ -54,7 +58,7 @@ def add_jobs_to_table(
             fields.build_num,
             fields.timestamp.strftime("%y-%m-%d %H:%M UTC") if fields.timestamp else None,
             status(fields.status),
-            fields.url,
+            link("Jenkins Link", fields.url) if short_links else fields.url
         )
         if fields.timestamp and datetime.now() - fields.timestamp > timedelta(hours=24):
             table.rows[-1].style = "dim"
@@ -73,6 +77,7 @@ def add_jobs_to_table(
             progress_task_fn=progress_task_fn,
             load_dir=load_dir,
             store_dir=store_dir,
+            short_links=short_links,
         )
         prefix = remove_prefix(prefix)
 
@@ -81,7 +86,7 @@ def count_dict(d):
     return sum([count_dict(v) if isinstance(v, dict) else 1 for v in d.values()])
 
 
-def display_rich_table(pipeline_dict, job_data, load, store):
+def display_rich_table(pipeline_dict, job_data, load, store, short_links):
     console = rich.console.Console()
     other_table = rich.table.Table(title="Jobs")
     other_table.add_column("Name")
@@ -103,5 +108,6 @@ def display_rich_table(pipeline_dict, job_data, load, store):
                 progress_task_fn=progress_fn,
                 load_dir=load,
                 store_dir=store,
+                short_links=short_links
             )
     console.print(other_table)
