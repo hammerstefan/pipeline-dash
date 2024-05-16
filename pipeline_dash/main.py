@@ -116,6 +116,7 @@ def help(ctx, subcommand):
 @click.option("--verbose", is_flag=True, help="Show verbose output")
 @click.option("--debug", is_flag=True, help="Turn on debug features (verbose logging, inspection features, etc)")
 @click.option("--cli-report", is_flag=True, help="Generate a text-based report rather than graph visualization")
+@click.option("--short-links", is_flag=True, help="Use hyperlinks instead of full jenkins links (may not work in all terminals)")
 @click.option(
     "--cache",
     help="Directory to cache data",
@@ -131,7 +132,7 @@ def help(ctx, subcommand):
     show_default=True,
 )
 @click.option("--user-file", help="User file if server authentication is required", type=click.Path(exists=True))
-def dash(pipeline_config, user_file, recurse, verbose, cli_report, cache, store, load, auth, debug):
+def dash(pipeline_config, user_file, recurse, verbose, cli_report, short_links, cache, store, load, auth, debug):
     import diskcache  # type: ignore
 
     dcache = diskcache.Cache(".diskcache")
@@ -206,7 +207,7 @@ def dash(pipeline_config, user_file, recurse, verbose, cli_report, cache, store,
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
     if cli_report:
-        display_rich_table(pipeline_dicts, job_data, load, store)
+        display_rich_table(pipeline_dicts, job_data, load, store, short_links)
     else:
         display_dash(
             get_job_data_,
