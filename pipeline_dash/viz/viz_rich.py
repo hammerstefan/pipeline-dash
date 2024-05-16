@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Callable, Optional
+from pipeline_dash.job_data import JobStatus
 
 import rich.console
 import rich.table
@@ -17,17 +18,17 @@ def add_jobs_to_table(
     load_dir: Optional[str],
     store_dir: Optional[str],
 ):
-    def status(str):
-        if str is None:
-            str = "In Progress"
-        text = rich.text.Text(str)
-        if str == "SUCCESS":
+    def status(job_status: JobStatus):
+        if job_status is JobStatus.UNDEFINED:
+            job_status = JobStatus.IN_PROGRESS
+        text = rich.text.Text(job_status.value)
+        if job_status == JobStatus.SUCCESS:
             text.stylize("green")
-        elif str == "UNSTABLE":
+        elif job_status == JobStatus.UNSTABLE:
             text.stylize("bold orange")
-        elif str == "In Progress":
+        elif job_status == JobStatus.IN_PROGRESS:
             text.stylize("yellow")
-        elif str == "FAILURE":
+        elif job_status == JobStatus.FAILURE:
             text.stylize("bold red3")
         return text
 
@@ -45,30 +46,27 @@ def add_jobs_to_table(
             prefix = prefix[1:]
         return prefix
 
-    # todo fix this to work with PipelineDict
-    if "__server__" in job_struct:
+    if "server" in job_struct:
         fields = job_data[name]
         table.add_row(
-            prefix + fields["name"],
-            fields["serial"],
-            fields["build_num"],
-            fields["timestamp"].strftime("%y-%m-%d %H:%M UTC") if fields["timestamp"] else None,
-            status(fields["status"]),
-            fields["url"],
+            prefix + fields.name,
+            fields.serial,
+            fields.build_num,
+            fields.timestamp.strftime("%y-%m-%d %H:%M UTC") if fields.timestamp else None,
+            status(fields.status),
+            fields.url,
         )
-        if fields["timestamp"] and datetime.now() - fields["timestamp"] > timedelta(hours=24):
+        if fields.timestamp and datetime.now() - fields.timestamp > timedelta(hours=24):
             table.rows[-1].style = "dim"
         progress_task_fn()
     else:
         table.add_row(prefix + name, style="bold")
 
-    for next_name in job_struct:
-        if next_name.startswith("__") and next_name.endswith("__"):
-            continue
+    for next_name in job_struct['children']:
         prefix = add_prefix(prefix)
         add_jobs_to_table(
             name=next_name,
-            job_struct=job_struct[next_name],
+            job_struct=job_struct['children'][next_name],
             job_data=job_data,
             prefix=prefix,
             table=table,
@@ -85,7 +83,7 @@ def count_dict(d):
 
 def display_rich_table(pipeline_dict, job_data, load, store):
     console = rich.console.Console()
-    other_table = rich.table.Table(title="Other Jobs")
+    other_table = rich.table.Table(title="Jobs")
     other_table.add_column("Name")
     other_table.add_column("Serial")
     other_table.add_column("No.")
@@ -99,7 +97,7 @@ def display_rich_table(pipeline_dict, job_data, load, store):
             add_jobs_to_table(
                 name=name,
                 job_struct=data,
-                job_data=job_data,
+                job_data=job_data[name],
                 prefix="",
                 table=other_table,
                 progress_task_fn=progress_fn,
