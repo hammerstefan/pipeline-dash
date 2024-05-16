@@ -27,6 +27,7 @@ from pipeline_dash.pipeline_utils import (
 )
 from pipeline_dash.viz.dash import viz_dash
 from pipeline_dash.viz.dash.viz_dash import display_dash
+from pipeline_dash.viz.viz_rich import display_rich_table
 
 logger = logging.getLogger("pipeline_dash")
 
@@ -114,6 +115,7 @@ def help(ctx, subcommand):
 @click.option("--recurse", is_flag=True, help="BETA: Recursively fetch job data for EVERY job listed")
 @click.option("--verbose", is_flag=True, help="Show verbose output")
 @click.option("--debug", is_flag=True, help="Turn on debug features (verbose logging, inspection features, etc)")
+@click.option("--cli-report", is_flag=True, help="Generate a text-based report rather than graph visualization")
 @click.option(
     "--cache",
     help="Directory to cache data",
@@ -129,7 +131,7 @@ def help(ctx, subcommand):
     show_default=True,
 )
 @click.option("--user-file", help="User file if server authentication is required", type=click.Path(exists=True))
-def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth, debug):
+def dash(pipeline_config, user_file, recurse, verbose, cli_report, cache, store, load, auth, debug):
     import diskcache  # type: ignore
 
     dcache = diskcache.Cache(".diskcache")
@@ -201,16 +203,18 @@ def dash(pipeline_config, user_file, recurse, verbose, cache, store, load, auth,
 
         return pipeline_dict_, job_data_
 
-    # display_rich_table(pipeline_dict, job_data, load, store)
     # elements = generate_cyto_elements(pipeline_dict, job_data)
     # display_cyto(elements)
-    display_dash(
-        get_job_data_,
-        viz_dash.Config(
-            debug=debug,
-            job_configs=list(job_configs.keys()),
-        ),
-    )
+    if cli_report:
+        display_rich_table(pipeline_dicts, job_data, load, store)
+    else:
+        display_dash(
+            get_job_data_,
+            viz_dash.Config(
+                debug=debug,
+                job_configs=list(job_configs.keys()),
+            ),
+        )
 
 
 if __name__ == "__main__":
