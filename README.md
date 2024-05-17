@@ -72,6 +72,8 @@ Dash is running on http://127.0.0.1:8050/
 │ --recurse                 BETA: Recursively fetch job data for EVERY job listed                                      │
 │ --verbose                 Show verbose output                                                                        │
 │ --debug                   Turn on debug features (verbose logging, inspection features, etc)                         │
+│ --cli-report              Generate a text-based report rather than graph visualization                               │
+│ --short-links             Use hyperlinks instead of full jenkins links (may not work in all terminals)               │
 │ --cache             TEXT  Directory to cache data [default: /home/shammer/git/pipeline-dash/pipeline_dash/.cache]    │
 │ --store             TEXT  EXPERIMENTAL: Directory to store Jenkins JSON data                                         │
 │ --load              TEXT  EXPERIMENTAL: Directory to load Jenkins JSON data                                          │
