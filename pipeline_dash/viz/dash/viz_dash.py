@@ -9,7 +9,7 @@ import dash  # type: ignore
 import dash_bootstrap_components as dbc  # type: ignore
 import dash_bootstrap_templates  # type: ignore
 import diskcache  # type: ignore
-import flask_debugtoolbar  # type: ignore
+# import flask_debugtoolbar  # type: ignore
 import plotly  # type: ignore
 from dash import ALL, dcc, html, Input, Output, State  # type: ignore
 from dash.exceptions import PreventUpdate  # type: ignore
@@ -54,12 +54,12 @@ def display_dash(get_job_data_fn: Callable[[str], tuple[PipelineDict, JobDataDic
     flask_app = Flask(__name__)
     flask_app.debug = True
     flask_app.config["SECRET_KEY"] = "mysecretkey"
-    flask_app.config["DEBUG_TB_PANELS"] = [
-        "flask_debugtoolbar.panels.profiler.ProfilerDebugPanel",
-        # Add the line profiling
-        "flask_debugtoolbar_lineprofilerpanel.panels.LineProfilerPanel",
-    ]
-    toolbar = flask_debugtoolbar.DebugToolbarExtension(flask_app)
+    # flask_app.config["DEBUG_TB_PANELS"] = [
+    #     "flask_debugtoolbar.panels.profiler.ProfilerDebugPanel",
+    #     # Add the line profiling
+    #     "flask_debugtoolbar_lineprofilerpanel.panels.LineProfilerPanel",
+    # ]
+    # toolbar = flask_debugtoolbar.DebugToolbarExtension(flask_app)
     session_id = str(uuid.uuid4())
 
     app = de.DashProxy(
