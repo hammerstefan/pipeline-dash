@@ -1,11 +1,14 @@
+import collections
 import itertools
 import time
 import uuid
 from statistics import median
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import networkx  # type: ignore
 from plotly import graph_objects as go  # type: ignore
+
+from pipeline_dash.viz.dash.cache import cache
 
 
 def do_layout(g: networkx.DiGraph) -> int:
@@ -37,12 +40,13 @@ def scale_font_size(scale: float) -> float:
     return min(max(int(14 * scale), 6), 20)
 
 
-def size_traces(
-    scale: float, node_trace: go.Scatter, edge_traces: Dict[str, go.Scatter], annotations: List[go.layout.Annotation]
-):
+def size_traces(scale: float, node_trace: go.Scatter, edge_traces: Dict[str, go.Scatter]):
     node_trace.marker.size = max(node_trace.marker.size * scale, 2)
     for et in edge_traces.values():
         et.line.width = max(et.line.width * scale, 0.5)
+
+
+def size_annotations(scale: float, annotations: tuple[go.layout.Annotation, ...]):
     for an in annotations:
         an.xshift *= scale if scale < 0 else pow(scale, 1.2)
         an.yshift = 5
@@ -50,7 +54,16 @@ def size_traces(
         an.font.size = scale_font_size(scale)
 
 
-def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
+class NetworkPlotFigure:
+    def __init__(self):
+        pass
+
+
+ShowAnnotations = bool
+
+
+# @pcprofile
+def generate_plot_figure(graph: networkx.DiGraph, session_id: str) -> tuple[go.Figure, ShowAnnotations]:
     start_time = time.process_time()
     # pos = nx.multipartite_layout(graph, subset_key="layer", center=(0,1))
     # serial = str(max(float(graph.nodes[n]["data"]["serial"]) for n in graph.nodes()))
@@ -59,51 +72,22 @@ def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
     edge_traces = generate_edge_traces(graph)
     default_edge_width = next(iter(edge_traces.values())).line.width
 
-    node_text_dict, node_trace = generate_node_traces(graph)
+    node_trace = generate_node_traces(graph)
     default_node_size = node_trace.marker.size
 
-    annotations = get_node_labels(graph, node_text_dict)
     default_scaling = 50 / y_scale
     default_scaling = min(default_scaling, 3.0)
-    size_traces(default_scaling, node_trace, edge_traces, annotations)
+    cache.set(f"{session_id}.figure_default_scaling", default_scaling)
+    size_traces(default_scaling, node_trace, edge_traces)
     y_scale_limit = 100
-    layout_buttons = list(
-        [
-            dict(
-                type="dropdown",
-                active=0 if y_scale < y_scale_limit else 1,
-                buttons=list(
-                    [
-                        dict(label="Label:On", method="update", args=[{"visible": True}, {"annotations": annotations}]),
-                        dict(label="Label:Off", method="update", args=[{"visible": True}, {"annotations": []}]),
-                    ]
-                ),
-                showactive=False,
-                pad=dict(b=0, l=0, r=0, t=0),
-                x=0.05,
-                y=1,
-            )
-        ]
-    )
     fig = go.Figure(
-        data=[*edge_traces.values(), node_trace],
         layout=go.Layout(
-            annotations=annotations if y_scale < y_scale_limit else [],
             autosize=True,
-            height=y_scale * 15,
             hovermode="closest",
             margin=go.layout.Margin(b=0, t=0, l=0, r=0),
-            meta=dict(
-                default_edge_width=default_edge_width,
-                default_node_size=default_node_size,
-                default_scaling=default_scaling,
-                default_yaxis_range=[-4, y_scale],
-            ),
             selectdirection="v",
             showlegend=False,
             titlefont_size=16,  # type: ignore
-            uirevision=str(uuid.uuid4()),
-            updatemenus=layout_buttons,
             xaxis=dict(
                 showgrid=False,
                 showticklabels=False,
@@ -111,22 +95,58 @@ def generate_plot_figure(graph: networkx.DiGraph) -> go.Figure:
             ),
             yaxis=dict(
                 constraintoward="top",
-                range=[-4, y_scale],
                 showgrid=False,
                 showticklabels=False,
                 zeroline=False,
             ),
         ),
     )
-    # fig.update_layout(annotations=annotations)
+    fig.update(
+        data=(*edge_traces.values(), node_trace),
+        overwrite=True,
+    )
+    fig.update_layout(
+        height=y_scale * 15,
+        meta=dict(
+            default_edge_width=default_edge_width,
+            default_node_size=default_node_size,
+            default_scaling=default_scaling,
+            default_yaxis_range=[-4, y_scale],
+        ),
+        uirevision=str(uuid.uuid4()),
+        overwrite=True,
+    )
+    fig.update_yaxes(range=[-4, y_scale], overwrite=True)
+    show_annotations = bool(y_scale < y_scale_limit)
+    cache.set(f"{session_id}.graph", graph)
 
     end_time = time.process_time()
     print(f"Rendered graph in {end_time - start_time} sec")
-    return fig
+    return fig, show_annotations
 
 
-def get_node_labels(graph, node_text_dict):
-    annotations = [
+LayoutUpdate = dict
+
+
+# @pcprofile
+def generate_annotations_layout_update(
+    graph: networkx.DiGraph, session_id: str, show_annotations: bool
+) -> tuple[LayoutUpdate, tuple[go.Annotation, ...]]:
+    annotations = get_node_labels(graph) if show_annotations else tuple()
+    cache.set(f"{session_id}.annotations", annotations)
+    default_scaling = cache.get(f"{session_id}.figure_default_scaling")
+    size_annotations(default_scaling, annotations)
+    update_layout = dict(
+        uirevision=str(uuid.uuid4()),
+        annotations=annotations,
+        overwrite=True,
+    )
+    return update_layout, tuple()
+
+
+def get_node_labels(graph: networkx.DiGraph) -> tuple[go.Annotation, ...]:
+    node_text_dict = _get_node_text_dict(graph)
+    annotations = tuple(
         go.layout.Annotation(
             x=graph.nodes[n]["pos"][0],
             y=graph.nodes[n]["pos"][1],
@@ -146,8 +166,19 @@ def get_node_labels(graph, node_text_dict):
             opacity=0.75,
         )
         for n in graph.nodes()
-    ]
+    )
     return annotations
+
+
+def _find_unique_in_name(a: str, b: str):
+    al = a.split("-")
+    bl = b.split("-")
+    alt, blt = (bl, al) if len(al) > len(bl) else (al, bl)
+    i = 0
+    for i, t in enumerate(alt):
+        if t != blt[i]:
+            break
+    return "-".join(bl[i:])
 
 
 def generate_node_traces(graph):
@@ -164,21 +195,7 @@ def generate_node_traces(graph):
         ),
     )
 
-    def find_unique_in_name(a: str, b: str):
-        al = a.split("-")
-        bl = b.split("-")
-        al, bl = (bl, al) if len(al) > len(bl) else (al, bl)
-        i = 0
-        for i, t in enumerate(al):
-            if t != bl[i]:
-                break
-        return "-".join(bl[i:])
-
-    node_text_dict = {
-        edge[1]: graph.nodes[edge[1]]["data"].get("label")
-        or find_unique_in_name(graph.nodes[edge[0]]["data"]["name"], graph.nodes[edge[1]]["data"]["name"])
-        for edge in graph.edges()
-    }
+    node_text_dict = _get_node_text_dict(graph)
     node_text = list(node_text_dict.get(n, n) for n in graph.nodes())
     node_trace.text = node_text
     node_trace.customdata = [graph.nodes[n]["data"] for n in graph.nodes()]
@@ -195,7 +212,16 @@ def generate_node_traces(graph):
         }
         node_color.append(status_map.get(status, status_map["default"]))
     node_trace.marker.color = node_color
-    return node_text_dict, node_trace
+    return node_trace
+
+
+def _get_node_text_dict(graph: networkx.DiGraph):
+    node_text_dict = {
+        edge[1]: graph.nodes[edge[1]]["data"].get("label")
+        or _find_unique_in_name(graph.nodes[edge[0]]["data"]["name"], graph.nodes[edge[1]]["data"]["name"])
+        for edge in graph.edges()
+    }
+    return node_text_dict
 
 
 def generate_edge_traces(graph):
@@ -209,7 +235,19 @@ def generate_edge_traces(graph):
             None: "#3dd5f3",
             "default": "gray",
         }
-        status = graph.nodes[edge[1]]["data"]["downstream_status"]
+        ds_status = graph.nodes[edge[1]]["data"]["downstream_status"]
+        status = graph.nodes[edge[1]]["data"]["status"]
+        counter = collections.Counter([ds_status, status])
+        if counter["FAILURE"]:
+            status = "FAILURE"
+        elif counter["UNSTABLE"]:
+            status = "UNSTABLE"
+        elif counter["In Progress"] or status is None:
+            status = "In Progress"
+        elif counter["SUCCESS"]:
+            status = "SUCCESS"
+        else:
+            status = "NOT RUN"
         status_parent = graph.nodes[edge[0]]["data"]["downstream_status"]
         if status_parent == "NOT RUN":
             status = status_parent
@@ -259,8 +297,10 @@ def resize_fig_data_from_scale(fig: dict, scale: float):
             d["marker"]["size"] = max(default_node_size * scale, 2)
         if "line" in d:
             d["line"]["width"] = max(default_edge_width * scale, 0.5)
+    # todo renable with annotations from cache
     for an in itertools.chain(
-        fig["layout"].get("annotations", []), fig["layout"]["updatemenus"][0]["buttons"][0]["args"][1]["annotations"]
+        fig["layout"].get("annotations", []),
+        # fig["layout"]["updatemenus"][0]["buttons"][0]["args"][0]["annotations"],
     ):  # type: dict
         an["xshift"] = 5 * (scale if scale < 0 else pow(scale, 1.2))
         an["yshift"] = 5

@@ -15,7 +15,7 @@ from dash_tabulator import DashTabulator  # type: ignore
 
 from pipeline_dash.job_data import JobData, JobDataDict
 from pipeline_dash.pipeline_utils import get_downstream_serials, PipelineDict
-from pipeline_dash.viz.dash import viz_dash
+from pipeline_dash.viz.dash import components, viz_dash
 from pipeline_dash.viz.dash.logged_callback import logged_callback
 from pipeline_dash.viz.dash.partial_callback import PartialCallback
 
@@ -36,6 +36,7 @@ class LeftPane(dbc.Col):
             refresh = "cb-enable-refresh"
             responsive_graph = "cb-responsive-graph"
             dark_mode = "cb-dark-mode"
+            show_annotations = "cb-show-annotations"
 
         class _IntervalIds:
             refresh = "intvl-refresh"
@@ -154,6 +155,16 @@ class LeftPane(dbc.Col):
                             ),
                             persistence=True,
                         ),
+                        dbc.Switch(
+                            label="Annotations",
+                            id=self.ids.checkboxes.show_annotations,
+                            value=True,
+                            className="m-2",
+                            style=dict(
+                                display="inline-block",
+                            ),
+                            persistence=True,
+                        ),
                         html.Div([], id="div-test"),
                         dbc.Button(
                             html.I(className="bi-diagram-2", style={"font-size": "1rem"}),
@@ -204,7 +215,9 @@ class LeftPane(dbc.Col):
         )
 
         self.setup_expand_all_callbacks(app)
-        # self.setup_sel_job_config_callbacks(app)
+        self.setup_show_annotations_callback(app)
+
+    # self.setup_sel_job_config_callbacks(app)
 
     @classmethod
     def setup_expand_all_callbacks(cls, app: dash.Dash):
@@ -348,6 +361,25 @@ class LeftPane(dbc.Col):
                 raise PreventUpdate()
             current_time = datetime.datetime.now().time().isoformat("seconds")
             return *callback.function(*args, **kwargs), current_time
+
+    @classmethod
+    def setup_show_annotations_callback(cls, app: dash.Dash):
+        @app.callback(
+            Output(cls.ids.checkboxes.show_annotations, "value"),
+            Output(components.graph_col.ids.StoreIds.show_annotations, "data"),
+            Input(cls.ids.checkboxes.show_annotations, "value"),
+            Input(components.graph_col.ids.StoreIds.show_annotations, "data"),
+        )
+        @logged_callback
+        def cb_show_annotations(cb_value, store_value):
+            if cb_value is None and store_value is None:
+                raise PreventUpdate()
+            if cb_value == store_value:
+                raise PreventUpdate()
+            value = (
+                cb_value if dash.callback_context.triggered_id == cls.ids.checkboxes.show_annotations else store_value
+            )
+            return value, value
 
     class JobsTable(html.Div):
         class Ids:
@@ -514,13 +546,17 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: JobDataDict
     )
     if "server" in job_struct:
         fields = job_data[name]
+        status = fields.status.value
+        downstream_status = job_struct.get("downstream_status", None)
+        if downstream_status and downstream_status != status:
+            status = f"{status} / {downstream_status}"
         details.update(
             dict(
                 name=fields.name,
                 serial=fields.serial,
                 build_num=fields.build_num,
                 timestamp=fields.timestamp.strftime("%y-%m-%d %H:%M UTC") if fields.timestamp else None,
-                status=fields.status.value,
+                status=status,
                 url=fields.human_url,
                 num_children=len(job_struct["children"]),
             )
@@ -535,8 +571,10 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: JobDataDict
         )
     details.update(
         dict(
-            _color=status_color_map[
-                job_data.get(name, JobData.UNDEFINED).status.value or job_struct.get("downstream_status")
+            _color=[
+                status_color_map[
+                    job_data.get(name, JobData.UNDEFINED).status.value or job_struct.get("downstream_status")],
+                status_color_map[job_struct.get("downstream_status") if job_struct.get("downstream_status") else job_data.get(name, JobData.UNDEFINED).status.value]
             ],
             _uuid=job_struct["uuid"],
         )

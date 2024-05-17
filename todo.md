@@ -26,6 +26,12 @@
 * Specify which job parameters to track (rather than fixed "SERIAL")
 * Jenkins folder support
 
+### Performance
+* speed up `generate_plot_figure`
+  * currently taking 200-300 ms for ibm_oracle network
+  * layout:updatemenus is taking a good chunk of that time
+  * everything around annotations is adding a good chunk of time
+    * get_node_labels 20%, fig.update_layout 52%
 
 ### Maintainability
 * take another look at improving the custom-callback syntax for components. @decorator somehow?
