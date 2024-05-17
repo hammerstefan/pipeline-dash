@@ -546,13 +546,17 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: JobDataDict
     )
     if "server" in job_struct:
         fields = job_data[name]
+        status = fields.status.value
+        downstream_status = job_struct.get("downstream_status", None)
+        if downstream_status and downstream_status != status:
+            status = f"{status} / {downstream_status}"
         details.update(
             dict(
                 name=fields.name,
                 serial=fields.serial,
                 build_num=fields.build_num,
                 timestamp=fields.timestamp.strftime("%y-%m-%d %H:%M UTC") if fields.timestamp else None,
-                status=fields.status.value,
+                status=status,
                 url=fields.human_url,
                 num_children=len(job_struct["children"]),
             )
@@ -567,8 +571,10 @@ def add_jobs_to_table(name: str, job_struct: PipelineDict, job_data: JobDataDict
         )
     details.update(
         dict(
-            _color=status_color_map[
-                job_data.get(name, JobData.UNDEFINED).status.value or job_struct.get("downstream_status")
+            _color=[
+                status_color_map[
+                    job_data.get(name, JobData.UNDEFINED).status.value or job_struct.get("downstream_status")],
+                status_color_map[job_struct.get("downstream_status") if job_struct.get("downstream_status") else job_data.get(name, JobData.UNDEFINED).status.value]
             ],
             _uuid=job_struct["uuid"],
         )
