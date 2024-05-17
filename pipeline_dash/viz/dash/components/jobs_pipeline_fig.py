@@ -136,27 +136,8 @@ def generate_annotations_layout_update(
     cache.set(f"{session_id}.annotations", annotations)
     default_scaling = cache.get(f"{session_id}.figure_default_scaling")
     size_annotations(default_scaling, annotations)
-    # layout_buttons = list(
-    #     [
-    #         go.layout.Updatemenu(
-    #             type="dropdown",
-    #             active=0 if show_annotations else 1,
-    #             buttons=list(
-    #                 [
-    #                     dict(label="Label:On", method="relayout", args=[{"annotations": annotations}]),
-    #                     dict(label="Label:Off", method="relayout", args=[{"annotations": []}]),
-    #                 ]
-    #             ),
-    #             showactive=False,
-    #             pad=dict(b=0, l=0, r=0, t=0),
-    #             x=0.05,
-    #             y=1,
-    #         )
-    #     ]
-    # )
     update_layout = dict(
         uirevision=str(uuid.uuid4()),
-        # updatemenus=layout_buttons,
         annotations=annotations,
         overwrite=True,
     )

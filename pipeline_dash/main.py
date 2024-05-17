@@ -60,10 +60,12 @@ def calculate_status(pipeline: PipelineDict, job_data: JobDataDict) -> None:
         old_serial = False
         if "server" in p:
             if (
-                job_data[name].serial is None and serial is not None
-                or serial is not None
-                and job_data[name].serial is not None
-                and float(job_data[name].serial or 0) < float(serial)
+                    (job_data[name].serial is None and serial is not None)
+                    or (
+                        serial is not None
+                        and job_data[name].serial is not None
+                        and float(job_data[name].serial or 0) < float(serial)
+                    )
             ):
                 status = [JobStatus.NOT_RUN.value]
                 old_serial = True

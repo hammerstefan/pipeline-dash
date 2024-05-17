@@ -33,8 +33,6 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
         },
         statusCellFormat: function (cell, formatterPrams, onRendered) {
             rowData = cell.getRow().getData()
-
-            // cell.getElement().style.backgroundColor = rowData._color
             cell.getElement().style.background = `linear-gradient(315deg, ${rowData._color[1]}, ${rowData._color[1]} 10px, ${rowData._color[0]} 10px, ${rowData._color[0]})`
             cell.getElement().style.color = "#fff"
             return cell.getValue()
