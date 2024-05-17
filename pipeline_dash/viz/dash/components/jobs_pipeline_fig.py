@@ -191,10 +191,10 @@ def get_node_labels(graph: networkx.DiGraph) -> tuple[go.Annotation, ...]:
 def _find_unique_in_name(a: str, b: str):
     al = a.split("-")
     bl = b.split("-")
-    al, bl = (bl, al) if len(al) > len(bl) else (al, bl)
+    alt, blt = (bl, al) if len(al) > len(bl) else (al, bl)
     i = 0
-    for i, t in enumerate(al):
-        if t != bl[i]:
+    for i, t in enumerate(alt):
+        if t != blt[i]:
             break
     return "-".join(bl[i:])
 
