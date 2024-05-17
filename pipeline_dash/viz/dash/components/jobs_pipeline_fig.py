@@ -1,3 +1,4 @@
+import collections
 import itertools
 import time
 import uuid
@@ -253,7 +254,19 @@ def generate_edge_traces(graph):
             None: "#3dd5f3",
             "default": "gray",
         }
-        status = graph.nodes[edge[1]]["data"]["downstream_status"]
+        ds_status = graph.nodes[edge[1]]["data"]["downstream_status"]
+        status = graph.nodes[edge[1]]["data"]["status"]
+        counter = collections.Counter([ds_status, status])
+        if counter["FAILURE"]:
+            status = "FAILURE"
+        elif counter["UNSTABLE"]:
+            status = "UNSTABLE"
+        elif counter["In Progress"] or status is None:
+            status = "In Progress"
+        elif counter["SUCCESS"]:
+            status = "SUCCESS"
+        else:
+            status = "NOT RUN"
         status_parent = graph.nodes[edge[0]]["data"]["downstream_status"]
         if status_parent == "NOT RUN":
             status = status_parent

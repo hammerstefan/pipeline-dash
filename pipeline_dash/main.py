@@ -60,22 +60,26 @@ def calculate_status(pipeline: PipelineDict, job_data: JobDataDict) -> None:
         old_serial = False
         if "server" in p:
             if (
-                serial is not None
+                job_data[name].serial is None and serial is not None
+                or serial is not None
                 and job_data[name].serial is not None
                 and float(job_data[name].serial or 0) < float(serial)
             ):
                 status = [JobStatus.NOT_RUN.value]
                 old_serial = True
             else:
+                if job_data[name].status.value is None:
+                    job_data[name].status = JobStatus.IN_PROGRESS
                 status = [job_data[name].status.value]
+
             p["status"] = status[0]
             if statuses is None:
                 statuses = []
             statuses.append(status)
         if isinstance(statuses, list) and isinstance(statuses[0], list):
             statuses = list(itertools.chain.from_iterable(statuses))
-        if statuses:
-            counter = collections.Counter(statuses)
+        if len(statuses) > 1:
+            counter = collections.Counter(statuses[:-1])
             if old_serial:
                 p["downstream_status"] = "NOT RUN"
             elif counter["FAILURE"]:
@@ -88,6 +92,8 @@ def calculate_status(pipeline: PipelineDict, job_data: JobDataDict) -> None:
                 p["downstream_status"] = "SUCCESS"
             else:
                 p["downstream_status"] = "NOT RUN"
+        else:
+            p["downstream_status"] = None
 
         return statuses
 
