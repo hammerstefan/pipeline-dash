@@ -54,15 +54,15 @@ def calculate_status(pipeline: PipelineDict, job_data: JobDataDict) -> None:
     """
 
     def recursive_calculate_status(name: JobName, p: PipelineDict, serial: Optional[str] = None) -> List[str]:
-        if serial is None:
+        if not serial:
             serial = job_data.get(name, JobData.UNDEFINED).serial
         statuses = recurse_pipeline(p, recursive_calculate_status, serial)
         old_serial = False
         if "server" in p:
             if (
-                    (job_data[name].serial is None and serial is not None)
+                    (job_data[name].serial is None and serial)
                     or (
-                        serial is not None
+                        serial
                         and job_data[name].serial is not None
                         and float(job_data[name].serial or 0) < float(serial)
                     )
