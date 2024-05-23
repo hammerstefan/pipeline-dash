@@ -1,0 +1,35 @@
+---
+name: pipeline-dash
+base: core22
+version: git
+summary: A tool to help inspect, observe, and visualize build pipelines.
+description: |
+  A tool to help inspect, observe, and visualize build pipelines.
+confinement: strict
+license: GPL-3.0
+architectures:
+  - build-on: [amd64]
+  - build-on: [arm64]
+
+plugs:
+  dot-config-pipeline-dash:
+    interface: personal-files
+    read:
+    - $HOME/.config/pipeline-dash
+
+apps:
+  pipeline-dash:
+    command: bin/pd
+    # environment:
+    #   PYTHONPATH: $SNAP/lib/python3.10/site-packages
+    plugs:
+      - home
+      - network
+      - dot-config-pipeline-dash
+
+parts:
+  awsmp:
+    plugin: python
+    source: .
+    stage-packages:
+      - python3-poetry

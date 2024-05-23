@@ -128,7 +128,7 @@ def help(ctx, subcommand):
 @click.option(
     "--cache",
     help="Directory to cache data",
-    default=f"{pathlib.Path(__file__).parent.resolve()}/.cache",
+    default=f"{pathlib.Path.home()}/.config/pipeline-dash/.cache",
     show_default=True,
 )
 @click.option("--store", help="EXPERIMENTAL: Directory to store Jenkins JSON data")
